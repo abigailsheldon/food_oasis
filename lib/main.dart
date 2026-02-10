@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'discover_page.dart';
 import 'shop_page.dart';
-import 'profile_page.dart';
+import 'dashboard_page.dart';
 
 void main() {
   runApp(FoodOasis());
