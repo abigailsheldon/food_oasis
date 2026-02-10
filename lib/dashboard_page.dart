@@ -7,10 +7,10 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: const Text('Dashboard'),
       ),
       body: Center(
-        child: Text('Your Profile'),
+        child: Text('Your Business Dashboard'),
       ),
     );
   }
