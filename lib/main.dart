@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'discover_page.dart';
+import 'navigate_page.dart';
 import 'shop_page.dart';
 import 'dashboard_page.dart';
 
@@ -38,6 +39,7 @@ class _MainPageState extends State<MainPage> {
   final List<Widget> _pages = const [
     HomePage(),
     DiscoverPage(),
+    NavigatePage(),
     ShopPage(),
     ProfilePage(),
   ];
@@ -67,12 +69,16 @@ class _MainPageState extends State<MainPage> {
             label: 'Discover',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.navigation),
+            label: 'Navigate',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.store),
             label: 'Shop',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'Profile',
+            label: 'Dashboard',
           ),
         ],
       ),
