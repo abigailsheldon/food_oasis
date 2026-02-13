@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'seller_data.dart';
+import 'discover_detail_page.dart';
 
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
@@ -7,18 +8,18 @@ class DiscoverPage extends StatefulWidget {
   @override
   State<DiscoverPage> createState() => _DiscoverPageState();
 }
+
 class _DiscoverPageState extends State<DiscoverPage> {
-  final List<String> sellers = healthySellers
-      .map((seller) => seller['businessName'] as String)
-      .toList();
   String searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
     final filteredSellers = sellers
-        .where((seller) =>
-            seller.toLowerCase().contains(searchQuery.toLowerCase()))
-        .toList();
+    .where((seller) =>
+        (seller['businessName'] as String)
+            .toLowerCase()
+            .contains(searchQuery.toLowerCase()))
+    .toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Discover')),
@@ -45,13 +46,16 @@ class _DiscoverPageState extends State<DiscoverPage> {
               child: ListView.builder(
                 itemCount: filteredSellers.length,
                 itemBuilder: (context, index) {
-                  final seller = healthySellers.firstWhere(
-                    (s) => s['businessName'] == filteredSellers[index],
-                  );
+                  final seller = filteredSellers[index];
 
                   return InkWell(
                     onTap: () {
-                      // will navigate to seller details page
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DiscoverDetailPage(seller: seller),
+                        ),
+                      );
                     },
                     child: Card(
                       margin: const EdgeInsets.symmetric(vertical: 8.0),
@@ -76,12 +80,20 @@ class _DiscoverPageState extends State<DiscoverPage> {
                                 IconButton(
                                   icon: const Icon(Icons.navigation_rounded),
                                   onPressed: () {
-                                    // Navigate to seller details page
+                                    // will navigate to gps
                                   },
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            Text(
+                              seller['address'] as String,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color.fromARGB(255, 141, 141, 141),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
                             Wrap(
                               spacing: 6,
                               children: (seller['tags'] as List<String>)
