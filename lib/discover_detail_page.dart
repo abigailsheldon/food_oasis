@@ -48,13 +48,11 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
 
               const SizedBox(height: 20),
 
-              // Scrollable content
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Business Name
                       Text(
                         widget.seller['businessName'],
                         style: const TextStyle(
@@ -64,31 +62,60 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
                       ),
                       const SizedBox(height: 4),
 
-                      // Address with clickable icon
-                      InkWell(
-                        onTap: () {
-                          // TODO: Navigate to GPS
-                        },
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                widget.seller['address'] ?? 'Address unavailable',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Color.fromARGB(255, 141, 141, 141),
-                                ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: InkWell(
+                              onTap: () {
+                                // will navigate to gps
+                              },
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      widget.seller['address'] ?? 'Address unavailable',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Color.fromARGB(255, 141, 141, 141),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Icon(
+                                    Icons.navigation_outlined,
+                                    size: 16,
+                                    color: Color.fromARGB(255, 141, 141, 141),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            const Icon(
-                              Icons.navigation_outlined,
-                              size: 16,
-                              color: Color.fromARGB(255, 141, 141, 141),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        children: (widget.seller['tags'] as List<String>)
+                            .map(
+                              (tag) => Chip(
+                                label: Text(
+                                  tag,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                backgroundColor: Theme.of(context).cardColor,
+                                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                                visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: BorderSide(
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
                       ),
                     ],
                   ),
