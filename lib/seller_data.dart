@@ -1,11 +1,11 @@
 
-final List<Map<String, dynamic>> healthySellers = [  {
+final List<Map<String, dynamic>> sellers = [  {
     'businessName': 'Fresh Harvest Market',
     'ownerName': 'Nova Simmy',
     'tags': ['healthy', 'organic', 'produce', 'local'],
     'description':
         'Family-owned market offering locally sourced fruits and vegetables.',
-    'location': 'Atlanta, GA',
+    'address': '123 Harvest Lane, Atlanta, GA',
   },
   {
     'businessName': 'Green Leaf Cafe',
@@ -13,7 +13,7 @@ final List<Map<String, dynamic>> healthySellers = [  {
     'tags': ['healthy', 'vegan', 'gluten-free', 'salads'],
     'description':
         'Plant-based cafe specializing in nutrient-rich bowls and smoothies.',
-    'location': 'Atlanta, GA',
+    'address': '456 Green Street, Atlanta, GA',
   },
   {
     'businessName': 'Sunrise Juice Co.',
@@ -21,7 +21,7 @@ final List<Map<String, dynamic>> healthySellers = [  {
     'tags': ['healthy', 'juice', 'cold-pressed', 'fruit'],
     'description':
         'Cold-pressed juices made daily with fresh fruits and vegetables.',
-    'location': 'Atlanta, GA',
+    'address': '789 Sunrise Blvd, Atlanta, GA',
   },
   {
     'businessName': 'Urban Farm Kitchen',
@@ -29,7 +29,7 @@ final List<Map<String, dynamic>> healthySellers = [  {
     'tags': ['healthy', 'farm-to-table', 'meal prep', 'fresh'],
     'description':
         'Prepared healthy meals using locally grown ingredients.',
-    'location': 'Atlanta, GA',
+    'address': '123 Farm Street, Atlanta, GA',
   },
   {
     'businessName': 'Golden Grain Bakery',
@@ -37,7 +37,7 @@ final List<Map<String, dynamic>> healthySellers = [  {
     'tags': ['healthy', 'baked goods', 'whole grain', 'low sugar'],
     'description':
         'Whole grain baked goods made with reduced sugar and clean ingredients.',
-    'location': 'Atlanta, GA',
+    'address': '456 Grain Avenue, Atlanta, GA',
   },
   {
     'businessName': 'Plant-Based Bites',
@@ -45,6 +45,6 @@ final List<Map<String, dynamic>> healthySellers = [  {
     'tags': ['healthy', 'vegan'],
     'description':
         'Vegan snacks and treats made with wholesome ingredients.',
-    'location': 'Atlanta, GA',
+    'address': '789 Plant Drive, Atlanta, GA',
   },
 ];
