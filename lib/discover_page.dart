@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'seller_data.dart';
-import 'discover_detail_page.dart';
+import 'business_detail_page.dart';
 
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
@@ -53,7 +53,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => DiscoverDetailPage(seller: seller),
+                          builder: (context) => BusinessDetailPage(seller: seller),
                         ),
                       );
                     },

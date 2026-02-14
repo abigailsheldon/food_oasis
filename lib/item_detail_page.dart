@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'seller_data.dart';
-import 'discover_detail_page.dart';
+import 'business_detail_page.dart';
 
 
 class ItemDetailPage extends StatelessWidget {
@@ -191,7 +191,7 @@ class ItemDetailPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => DiscoverDetailPage(seller: seller),
+                              builder: (context) => BusinessDetailPage(seller: seller),
                             ),
                           );
                         } else {                        
