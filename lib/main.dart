@@ -36,12 +36,12 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
 
-  final List<Widget> _pages = const [
+  final List<Widget> _pages = [
     HomePage(),
     DiscoverPage(),
     NavigatePage(),
     ShopPage(),
-    ProfilePage(),
+    DashboardPage(),
   ];
 
   void _onItemTapped(int index) {
