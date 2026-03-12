@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'edit_item_page.dart';
 import 'services/auth_service.dart';
-
+import 'favorites_page.dart';
+import 'cart_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -120,6 +121,21 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.favorite_border),
+          onPressed: () => Navigator.push(context,
+            MaterialPageRoute(builder: (context) => const FavoritesPage())),
+        ),
+        IconButton(
+          icon: const Icon(Icons.shopping_cart_outlined),
+          onPressed: () => Navigator.push(context,
+            MaterialPageRoute(builder: (context) => const CartPage())),
+        ),
+      ],
+    ),
                   const Text(
                     "Business Details",
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
