@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'item_data.dart';
 import 'item_detail_page.dart';
+import 'favorites_page.dart';
+import 'cart_page.dart';
 
 class ShopPage extends StatefulWidget {
   const ShopPage({super.key});
@@ -50,6 +52,18 @@ class _ShopPageState extends State<ShopPage> {
       appBar: AppBar(
         title: const Text('Shop'),
         backgroundColor: Colors.green.shade50,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.favorite_border),
+            onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const FavoritesPage())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const CartPage())),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(12.0),

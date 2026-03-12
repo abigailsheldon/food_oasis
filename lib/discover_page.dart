@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'seller_data.dart';
 import 'business_detail_page.dart';
+import 'favorites_page.dart';
+import 'cart_page.dart';
 
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
@@ -22,7 +24,22 @@ class _DiscoverPageState extends State<DiscoverPage> {
     .toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Discover')),
+      appBar: AppBar(
+      title: const Text('Discover'),
+      backgroundColor: Colors.green.shade50,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.favorite_border),
+            onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const FavoritesPage())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const CartPage())),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
