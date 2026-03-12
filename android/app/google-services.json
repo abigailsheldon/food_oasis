@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "577606194223",
+    "project_id": "food-oasis-fbab6",
+    "storage_bucket": "food-oasis-fbab6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:577606194223:android:2ec36b22032a0d890522da",
+        "android_client_info": {
+          "package_name": "com.example.food_oasis"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "577606194223-ldhpmlqn3vsqjebiflgtnp9tgmut3dvs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.food_oasis",
+            "certificate_hash": "114a0b32e6bb4ee092a2dd336d776d64757ea504"
+          }
+        },
+        {
+          "client_id": "577606194223-6cic1eqpp64mv15q6oivakjsobhf6ioj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYzR7Sb7YwIzPmAfwlAafSH4rQOW_mUTk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "577606194223-6cic1eqpp64mv15q6oivakjsobhf6ioj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "577606194223-kuirhebnnqk2s206p3gshb33r8aj6ll0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.foodOasis"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
