@@ -5,8 +5,18 @@ import 'navigate_page.dart';
 import 'shop_page.dart';
 import 'dashboard_page.dart';
 
-void main() {
-  runApp(FoodOasis());
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
+import 'auth/login_page.dart';
+import 'services/auth_service.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const FoodOasis());
 }
 
 class FoodOasis extends StatelessWidget {
@@ -21,7 +31,36 @@ class FoodOasis extends StatelessWidget {
         primaryColor: Colors.green,
         useMaterial3: true,
       ),
-      home: MainPage(),
+      home: const AuthWrapper(),
+    );
+  }
+}
+
+// Wrapper to handle auth state
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(color: Colors.green),
+            ),
+          );
+        }
+
+        // User is logged in
+        if (snapshot.hasData) {
+          return const MainPage();
+        }
+
+        // User is not logged in
+        return const LoginPage();
+      },
     );
   }
 }

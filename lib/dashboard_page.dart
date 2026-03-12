@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'edit_item_page.dart';
+import 'services/auth_service.dart';
+
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -10,6 +12,8 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   bool isCollapsed = true;
+
+  final AuthService _authService = AuthService();
 
   final nameController = TextEditingController(text: "Fresh Farm Market");
   final addressController = TextEditingController(text: "123 Peachtree St, Atlanta, GA");
@@ -98,6 +102,14 @@ class _DashboardPageState extends State<DashboardPage> {
                   label: "Settings",
                   onTap: () {},
                 ),
+                const Spacer(),  // Pushes logout to bottom
+                sidebarItem(
+                  icon: Icons.logout,
+                  iconColor: Colors.red,
+                  label: "Logout",
+                  onTap: _logout,
+                ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -355,4 +367,29 @@ class _DashboardPageState extends State<DashboardPage> {
       productCategories[category]!.remove(product);
     });
   }
+
+  void _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _authService.signOut();
+    }
+  }
+
 }
