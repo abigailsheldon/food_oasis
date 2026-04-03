@@ -13,9 +13,10 @@ class AuthService {
 
   // Sign up with email and password
   Future<Map<String, dynamic>> signUp({
-    required String email,
-    required String password,
     required String name,
+    required String password,
+    required String email,
+    required String phone,
     required String role, // 'buyer' or 'seller'
     String? businessName, // Required for sellers
   }) async {
@@ -34,9 +35,16 @@ class AuthService {
           'uid': user.uid,
           'email': email,
           'name': name,
+          'phone': phone,
           'role': role,
-          'businessName': businessName ?? '',
+
+          'businessId' : null,
+
+          // Buyer + Seller shared fields
+          'favoriteSellers': [],
+          'cart': [],
           'createdAt': FieldValue.serverTimestamp(),
+
         });
 
         return {'success': true, 'user': user};
