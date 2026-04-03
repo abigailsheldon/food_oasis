@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'seller_data.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'business_detail_page.dart';
 import 'favorites_page.dart';
 import 'cart_page.dart';
@@ -12,17 +12,12 @@ class DiscoverPage extends StatefulWidget {
 }
 
 class _DiscoverPageState extends State<DiscoverPage> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   String searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
-    final filteredSellers = sellers
-    .where((seller) =>
-        (seller['businessName'] as String)
-            .toLowerCase()
-            .contains(searchQuery.toLowerCase()))
-    .toList();
-
     return Scaffold(
       appBar: AppBar(
       title: const Text('Discover'),
@@ -60,87 +55,83 @@ class _DiscoverPageState extends State<DiscoverPage> {
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: ListView.builder(
-                itemCount: filteredSellers.length,
-                itemBuilder: (context, index) {
-                  final seller = filteredSellers[index];
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _firestore.collection('businesses').snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                  return InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => BusinessDetailPage(seller: seller),
-                        ),
-                      );
-                    },
-                    child: Card(
-                      margin: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  final docs = snapshot.data!.docs;
+
+                  final businesses = docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    data['businessId'] = doc.id;
+                    return data;
+                  }).toList();
+
+                  final filtered = businesses.where((b) {
+                    final name = (b['name'] ?? '').toString().toLowerCase();
+                    return name.contains(searchQuery.toLowerCase());
+                  }).toList();
+
+                  return ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final seller = filtered[index];
+
+                      return InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  BusinessDetailPage(seller: seller),
+                            ),
+                          );
+                        },
+                        child: Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    seller['businessName'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-
-                                IconButton(
-                                  icon: const Icon(Icons.navigation_rounded),
-                                  onPressed: () {
-                                    // will navigate to gps
-                                  },
-                                ),
-                              ],
-                            ),
-                            Text(
-                              seller['address'] as String,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color.fromARGB(255, 141, 141, 141),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-
-                            Wrap(
-                              spacing: 6,
-                              children: (seller['tags'] as List<String>)
-                                  .map(
-                                    (tag) => Chip(
-                                      label: Text(
-                                        tag,
-                                        style: const TextStyle(fontSize: 11),
-                                      ),
-                                      backgroundColor: Theme.of(context).cardColor,
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                        side: BorderSide(
-                                          color: Theme.of(context).primaryColor,
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        seller['name'] ?? '',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ),
-                                  )
-                                  .toList(),
+                                    IconButton(
+                                      icon: const Icon(Icons.navigation_rounded),
+                                      onPressed: () {},
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  seller['address'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color.fromARGB(255, 141, 141, 141),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   );
                 },
               ),
-            ),
+            )
           ],
         ),
       ),

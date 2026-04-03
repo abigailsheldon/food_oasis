@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'seller_signup_page.dart';
+import '../dashboard_page.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -12,6 +14,7 @@ class _SignupPageState extends State<SignupPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _businessNameController = TextEditingController();
@@ -37,9 +40,10 @@ class _SignupPageState extends State<SignupPage> {
       setState(() => _isLoading = true);
 
       final result = await _authService.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
         name: _nameController.text.trim(),
+        password: _passwordController.text,
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
         role: _selectedRole,
         businessName: _selectedRole == 'seller'
             ? _businessNameController.text.trim()
@@ -57,7 +61,17 @@ class _SignupPageState extends State<SignupPage> {
             ),
           );
           // Pop back to login or let auth state handle navigation
-          Navigator.pop(context);
+          if (_selectedRole == 'seller') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const SellerOnboardingPage()),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const DashboardPage()),
+            );
+          }
         }
       } else {
         if (mounted) {
@@ -185,6 +199,26 @@ class _SignupPageState extends State<SignupPage> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 16),
+
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    prefixIcon: const Icon(Icons.phone_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your phone number';
+                    }
+                    return null;
+                  },
+                ),
+
                 const SizedBox(height: 16),
 
                 // Password field

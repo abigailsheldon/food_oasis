@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'edit_item_page.dart';
 import 'services/auth_service.dart';
-import 'favorites_page.dart';
-import 'cart_page.dart';
+import 'services/firestore_service.dart';
+import 'auth/seller_signup_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -12,191 +13,318 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  bool isCollapsed = true;
+  String? businessId;
+  String? role;
+
+  bool isLoading = true;
 
   final AuthService _authService = AuthService();
+  final FirestoreService _firestoreService = FirestoreService();
 
-  final nameController = TextEditingController(text: "Fresh Farm Market");
-  final addressController = TextEditingController(text: "123 Peachtree St, Atlanta, GA");
-  final descriptionController = TextEditingController(text: "Local organic fruits and vegetables.");
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
 
-  Map<String, Map<String, TimeOfDay?>> businessHours = {
-    "Monday": {"open": TimeOfDay(hour: 9, minute: 0), "close": TimeOfDay(hour: 18, minute: 0)},
-    "Tuesday": {"open": TimeOfDay(hour: 9, minute: 0), "close": TimeOfDay(hour: 18, minute: 0)},
-    "Wednesday": {"open": TimeOfDay(hour: 9, minute: 0), "close": TimeOfDay(hour: 18, minute: 0)},
-    "Thursday": {"open": TimeOfDay(hour: 9, minute: 0), "close": TimeOfDay(hour: 18, minute: 0)},
-    "Friday": {"open": TimeOfDay(hour: 9, minute: 0), "close": TimeOfDay(hour: 18, minute: 0)},
-    "Saturday": {"open": TimeOfDay(hour: 9, minute: 0), "close": TimeOfDay(hour: 18, minute: 0)},
-    "Sunday": {"open": null, "close": null},
-  };
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadUser();
+  }
 
-  Map<String, bool> daysOpen = {
-    "Monday": true,
-    "Tuesday": true,
-    "Wednesday": true,
-    "Thursday": true,
-    "Friday": true,
-    "Saturday": true,
-    "Sunday": false,
-  };
+  Future<void> _loadUser() async {
+    final uid = _authService.currentUser?.uid;
 
-  bool acceptingReservations = true;
+    if (uid == null) {
+      setState(() => isLoading = false);
+      return;
+    }
 
-  Map<String, List<Map<String, dynamic>>> productCategories = {
-    "Fruits": [
-      {"name": "Apples", "price": 2.5, "stock": 10},
-      {"name": "Strawberries", "price": 3.0, "stock": 15},
-    ],
-    "Vegetables": [
-      {"name": "Carrots", "price": 1.5, "stock": 20},
-      {"name": "Spinach", "price": 2.0, "stock": 12},
-    ],
-    "Dairy": [
-      {"name": "Milk", "price": 3.0, "stock": 8},
-      {"name": "Eggs", "price": 4.0, "stock": 30},
-    ]
-  };
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+    final data = doc.data();
+
+    role = data?['role'];
+    businessId = data?['businessId'];
+
+    setState(() => isLoading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    double sidebarWidth = isCollapsed ? 70 : 220;
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
+    // ---------------- BUYER DASHBOARD ----------------
+    if (role == "buyer") {
+      return Scaffold(
+        body: Center(
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SellerOnboardingPage(),
+                ),
+              );
+            },
+            child: const Text("Sign Up as a Seller"),
+          ),
+        ),
+      );
+    }
+
+    // ---------------- SELLER DASHBOARD ----------------
+    return SellerDashboardPage(
+      businessId: businessId,
+      firestoreService: _firestoreService,
+      authService: _authService,
+    );
+  }
+}
+
+/* ===================================================== */
+/* ================= SELLER DASHBOARD =================== */
+/* ===================================================== */
+
+class SellerDashboardPage extends StatefulWidget {
+  final String? businessId;
+  final FirestoreService firestoreService;
+  final AuthService authService;
+
+  const SellerDashboardPage({
+    super.key,
+    required this.businessId,
+    required this.firestoreService,
+    required this.authService,
+  });
+
+  @override
+  State<SellerDashboardPage> createState() => _SellerDashboardPageState();
+}
+
+class _SellerDashboardPageState extends State<SellerDashboardPage> {
+  bool isCollapsed = true;
+  bool acceptingReservations = true;
+
+  final nameController = TextEditingController();
+  final addressController = TextEditingController();
+  final descriptionController = TextEditingController();
+
+  final List<String> weekdayOrder = const [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
+
+  Map<String, bool> daysOpen = {};
+  Map<String, Map<String, TimeOfDay?>> businessHours = {};
+
+  @override
+  void initState() {
+    super.initState();
+
+    for (final day in weekdayOrder) {
+      daysOpen[day] = true;
+      businessHours[day] = {
+        "open": const TimeOfDay(hour: 9, minute: 0),
+        "close": const TimeOfDay(hour: 18, minute: 0),
+      };
+    }
+
+    _loadBusiness();
+  }
+
+  Future<void> _loadBusiness() async {
+    if (widget.businessId == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('businesses')
+        .doc(widget.businessId)
+        .get();
+
+    final data = doc.data();
+    if (data == null) return;
+
+    setState(() {
+      nameController.text = data['name'] ?? '';
+      addressController.text = data['address'] ?? '';
+      descriptionController.text = data['description'] ?? '';
+      acceptingReservations = data['acceptingReservations'] ?? true;
+
+      final hours = data['hours'] as Map<String, dynamic>?;
+
+      if (hours != null) {
+        for (final day in weekdayOrder) {
+          final d = hours[day];
+          if (d == null) continue;
+
+          daysOpen[day] = d['isOpen'] ?? true;
+
+          businessHours[day] = {
+            "open": _parseTime(d['open']),
+            "close": _parseTime(d['close']),
+          };
+        }
+      }
+    });
+  }
+
+  TimeOfDay? _parseTime(String? value) {
+    if (value == null || value.isEmpty) return null;
+    final parts = value.split(":");
+    return TimeOfDay(
+      hour: int.parse(parts[0]),
+      minute: int.parse(parts[1]),
+    );
+  }
+
+  String? _formatTime(TimeOfDay? t) {
+    if (t == null) return null;
+    return "${t.hour}:${t.minute}";
+  }
+
+  Future<void> _saveProfile() async {
+    final Map<String, dynamic> hoursPayload = {};
+
+    for (final day in weekdayOrder) {
+      hoursPayload[day] = {
+        "isOpen": daysOpen[day] ?? true,
+        "open": _formatTime(businessHours[day]?["open"]),
+        "close": _formatTime(businessHours[day]?["close"]),
+      };
+    }
+
+    await widget.firestoreService.createOrUpdateBusinessProfile(
+      businessId: widget.businessId,
+      name: nameController.text,
+      address: addressController.text,
+      description: descriptionController.text,
+      hours: hoursPayload,
+      acceptingReservations: acceptingReservations,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Profile saved")),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: sidebarWidth,
+            width: isCollapsed ? 70 : 220,
             color: Colors.green[100],
             child: Column(
               children: [
                 const SizedBox(height: 40),
                 IconButton(
-                  icon: const Icon(Icons.menu), color: Colors.black,
-                  onPressed: () {
-                    setState(() {
-                      isCollapsed = !isCollapsed;
-                    });
-                  },
+                  icon: const Icon(Icons.menu),
+                  onPressed: () =>
+                      setState(() => isCollapsed = !isCollapsed),
                 ),
                 const SizedBox(height: 20),
-                sidebarItem(
-                  icon: Icons.receipt, iconColor: Colors.black,
-                  label: "Orders",
-                  onTap: () {},
-                ),
-                const SizedBox(height: 20),
-                sidebarItem(
-                  icon: Icons.discount, iconColor: Colors.black,
-                  label: "Promotions",
-                  onTap: () {},
-                ),
-                const SizedBox(height: 20),
-                sidebarItem(
-                  icon: Icons.rate_review, iconColor: Colors.black,
-                  label: "Reviews",
-                  onTap: () {},
-                ),
-                const SizedBox(height: 20),
-                sidebarItem(
-                  icon: Icons.settings, iconColor: Colors.black,
-                  label: "Settings",
-                  onTap: () {},
-                ),
-                const Spacer(),  // Pushes logout to bottom
-                sidebarItem(
-                  icon: Icons.logout,
-                  iconColor: Colors.red,
-                  label: "Logout",
-                  onTap: _logout,
-                ),
+                sidebarItem(Icons.receipt, "Orders"),
+                sidebarItem(Icons.discount, "Promotions"),
+                sidebarItem(Icons.rate_review, "Reviews"),
+                sidebarItem(Icons.settings, "Settings"),
+                const Spacer(),
+                sidebarItem(Icons.logout, "Logout", isLogout: true),
                 const SizedBox(height: 20),
               ],
             ),
           ),
 
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.favorite_border),
-          onPressed: () => Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const FavoritesPage())),
-        ),
-        IconButton(
-          icon: const Icon(Icons.shopping_cart_outlined),
-          onPressed: () => Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const CartPage())),
-        ),
-      ],
-    ),
-                  const Text(
-                    "Business Details",
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 25),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: widget.firestoreService
+                  .getProducts(businessId: widget.businessId),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                  profileField("Business Name", nameController),
-                  profileField("Address", addressController),
-                  profileField("Description", descriptionController),
-                  const SizedBox(height: 20),
+                final products = snapshot.data!.docs;
 
-                  const Text("Business Hours", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Business Profile",
+                        style: TextStyle(
+                            fontSize: 28, fontWeight: FontWeight.bold),
+                      ),
 
-                  ...daysOpen.keys.map((day) {
-                    return Row(
-                      children: [
-                        Checkbox(
-                          value: daysOpen[day],
-                          onChanged: (val) {
-                            setState(() {
-                              daysOpen[day] = val ?? false;
-                              if (!daysOpen[day]!) {
-                                businessHours[day]!["open"] = null;
-                                businessHours[day]!["close"] = null;
-                              } else {
-                                businessHours[day]!["open"] ??= TimeOfDay(hour: 9, minute: 0);
-                                businessHours[day]!["close"] ??= TimeOfDay(hour: 18, minute: 0);
-                              }
-                            });
-                          },
-                          checkColor: Colors.white,
-                          fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                            if (states.contains(MaterialState.selected)) {
-                              return Colors.green[800]!;
-                            }
-                            return Colors.white;
-                          }),
-                          side: const BorderSide(
-                            color: Colors.green,
-                            width: 2,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        SizedBox(width: 5),
-                        SizedBox(
-                          width: 80,
-                          child: Text(day),
-                        ),
-                        const SizedBox(width: 10),
-                        if (daysOpen[day]!)
-                          Row(
-                            children: [
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                            labelText: "Business Name"),
+                      ),
+                      TextField(
+                        controller: addressController,
+                        decoration:
+                            const InputDecoration(labelText: "Address"),
+                      ),
+                      TextField(
+                        controller: descriptionController,
+                        decoration:
+                            const InputDecoration(labelText: "Description"),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      SwitchListTile(
+                        title: const Text("Accepting Reservations"),
+                        value: acceptingReservations,
+                        onChanged: (v) =>
+                            setState(() => acceptingReservations = v),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      const Text(
+                        "Business Hours",
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      ...weekdayOrder.map((day) {
+                        return Row(
+                          children: [
+                            Checkbox(
+                              value: daysOpen[day] ?? true,
+                              onChanged: (v) {
+                                setState(() {
+                                  daysOpen[day] = v ?? false;
+                                });
+                              },
+                            ),
+                            SizedBox(width: 90, child: Text(day)),
+                            if (daysOpen[day] ?? true) ...[
                               TextButton(
                                 onPressed: () async {
-                                  TimeOfDay initialOpen = businessHours[day]!["open"] ?? const TimeOfDay(hour: 9, minute: 0);
-                                  TimeOfDay? picked = await showTimePicker(
+                                  final picked = await showTimePicker(
                                     context: context,
-                                    initialTime: initialOpen,
+                                    initialTime: businessHours[day]!["open"] ??
+                                        const TimeOfDay(hour: 9, minute: 0),
                                   );
                                   if (picked != null) {
                                     setState(() {
@@ -205,17 +333,18 @@ class _DashboardPageState extends State<DashboardPage> {
                                   }
                                 },
                                 child: Text(
-                                  (businessHours[day]!["open"] ?? const TimeOfDay(hour: 9, minute: 0)).format(context),
-                                  style: const TextStyle(color: Colors.black),
+                                  businessHours[day]!["open"]?.format(
+                                          context) ??
+                                      "Open",
                                 ),
                               ),
                               const Text(" - "),
                               TextButton(
                                 onPressed: () async {
-                                  TimeOfDay initialClose = businessHours[day]!["close"] ?? const TimeOfDay(hour: 18, minute: 0);
-                                  TimeOfDay? picked = await showTimePicker(
+                                  final picked = await showTimePicker(
                                     context: context,
-                                    initialTime: initialClose,
+                                    initialTime: businessHours[day]!["close"] ??
+                                        const TimeOfDay(hour: 18, minute: 0),
                                   );
                                   if (picked != null) {
                                     setState(() {
@@ -224,114 +353,54 @@ class _DashboardPageState extends State<DashboardPage> {
                                   }
                                 },
                                 child: Text(
-                                  (businessHours[day]!["close"] ?? const TimeOfDay(hour: 18, minute: 0)).format(context),
-                                  style: const TextStyle(color: Colors.black),
+                                  businessHours[day]!["close"]?.format(
+                                          context) ??
+                                      "Close",
                                 ),
                               ),
                             ],
-                          ),
-                      ],
-                    );
-                  }).toList(),
+                          ],
+                        );
+                      }),
 
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Switch(
-                        value: acceptingReservations,
-                        onChanged: (val) {
-                          setState(() {
-                            acceptingReservations = val;
-                          });
-                        },
-                        activeColor: Colors.white,
-                        activeTrackColor: Colors.green[800],
-                        inactiveThumbColor: Colors.green[800],
-                        inactiveTrackColor: Colors.green[100],
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      const SizedBox(height: 20),
+
+                      ElevatedButton(
+                        onPressed: _saveProfile,
+                        child: const Text("Save Profile"),
                       ),
-                      const SizedBox(width: 6),
-                      const Text("Accepting Reservations"),
-                    ],
-                  ),
 
-                  const SizedBox(height: 20),
+                      const SizedBox(height: 30),
 
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.black,
-                    ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Business details saved")),
-                      );
-                    },
-                    child: const Text("Save Business Profile"),
-                  ),
+                      const Text(
+                        "Products",
+                        style: TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
 
-                  const SizedBox(height: 40),
+                      const SizedBox(height: 10),
 
-                  const Text(
-                    "Products",
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 20),
-
-                  ...productCategories.entries.map((category) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(category.key, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 10),
-
+                      if (products.isEmpty)
+                        const Text("No products yet.")
+                      else
                         Column(
-                          children: category.value.map((product) {
+                          children: products.map((doc) {
+                            final data =
+                                doc.data() as Map<String, dynamic>;
+
                             return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 5),
                               child: ListTile(
-                                title: Text(product["name"]),
-                                subtitle: Text("Price: \$${product["price"]} | Stock: ${product["stock"]}"),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () {
-                                        editProduct(category.key, product);
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () {
-                                        deleteProduct(category.key, product);
-                                      },
-                                    ),
-                                  ],
-                                ),
+                                title: Text(data["name"] ?? ""),
+                                subtitle: Text(
+                                    "Price: \$${data["price"]} | Stock: ${data["quantity"]}"),
                               ),
                             );
                           }).toList(),
                         ),
-
-                        const SizedBox(height: 15),
-
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            foregroundColor: Colors.black,
-                          ),
-                          onPressed: () {
-                            addProduct(category.key);
-                          },
-                          icon: const Icon(Icons.add),
-                          label: const Text("Add Product"),
-                        ),
-
-                        const SizedBox(height: 25),
-                      ],
-                    );
-                  }).toList(),
-                ],
-              ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -339,73 +408,15 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget sidebarItem({required IconData icon, required Color iconColor, required String label, required VoidCallback onTap}) {
+  Widget sidebarItem(IconData icon, String label, {bool isLogout = false}) {
     return ListTile(
-      leading: Icon(icon, color: iconColor),
+      leading: Icon(icon, color: isLogout ? Colors.red : Colors.black),
       title: isCollapsed ? null : Text(label),
-      onTap: onTap,
+      onTap: () async {
+        if (isLogout) {
+          await widget.authService.signOut();
+        }
+      },
     );
   }
-
-  Widget profileField(String label, TextEditingController controller) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-        ),
-      ),
-    );
-  }
-
-  void addProduct(String category) {
-    setState(() {
-      productCategories[category]!.add({"name": "New Product", "price": 0.0, "stock": 0});
-    });
-  }
-
-  void editProduct(String category, Map<String, dynamic> product) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditItemPage(
-          category: category,
-          product: product,
-        ),
-      ),
-    );
-  }
-
-  void deleteProduct(String category, Map<String, dynamic> product) {
-    setState(() {
-      productCategories[category]!.remove(product);
-    });
-  }
-
-  void _logout() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Logout', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await _authService.signOut();
-    }
-  }
-
 }

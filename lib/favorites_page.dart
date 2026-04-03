@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'item_data.dart';
-import 'item_detail_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'services/firestore_service.dart';
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
@@ -10,44 +10,27 @@ class FavoritesPage extends StatefulWidget {
 }
 
 class _FavoritesPageState extends State<FavoritesPage> {
-  // Placeholder favorite item IDs for UI testing
-  final List<String> favoriteIds = ['1', '3', '6'];
-
-  IconData getItemIcon(String iconName) {
-    switch (iconName) {
-      case 'apple':
-        return Icons.apple;
-      case 'lunch_dining':
-        return Icons.lunch_dining;
-      case 'local_drink':
-        return Icons.local_drink;
-      case 'takeout_dining':
-        return Icons.takeout_dining;
-      case 'bakery_dining':
-        return Icons.bakery_dining;
-      case 'cookie':
-        return Icons.cookie;
-      case 'egg':
-        return Icons.egg;
-      case 'blender':
-        return Icons.blender;
-      default:
-        return Icons.fastfood;
-    }
-  }
+  final FirestoreService _firestoreService = FirestoreService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   Widget build(BuildContext context) {
-    final favoriteItems =
-        shopItems.where((item) => favoriteIds.contains(item['id'])).toList();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Favorites'),
         backgroundColor: Colors.green.shade50,
       ),
-      body: favoriteItems.isEmpty
-          ? Center(
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _firestoreService.getFavoriteSellersStream(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final sellers = snapshot.data ?? [];
+
+          if (sellers.isEmpty) {
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -64,7 +47,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Items you heart will show up here',
+                    'Sellers you heart will show up here',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey.shade500,
@@ -72,111 +55,92 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   ),
                 ],
               ),
-            )
-          : Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  childAspectRatio: 1.5,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemCount: favoriteItems.length,
-                itemBuilder: (context, index) {
-                  final item = favoriteItems[index];
+            );
+          }
 
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ItemDetailPage(item: item),
-                        ),
-                      );
-                    },
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade100,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Icon(
-                                      getItemIcon(item['imageIcon']),
-                                      size: 32,
-                                      color: Colors.green.shade700,
-                                    ),
-                                  ),
-                                  Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          favoriteIds.remove(item['id']);
-                                        });
-                                      },
-                                      child: const Icon(
-                                        Icons.favorite,
-                                        color: Colors.red,
-                                        size: 18,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              item['name'],
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              item['seller'],
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Colors.grey.shade600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '\$${item['price'].toStringAsFixed(2)}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
+          return Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: GridView.builder(
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 1.2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
               ),
+              itemCount: sellers.length,
+              itemBuilder: (context, index) {
+                final seller = sellers[index];
+
+                return Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.store,
+                              size: 40,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          seller['name'] ?? 'Unnamed Seller',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          seller['address'] ?? 'No address available',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: () {
+                              _firestoreService.toggleFavoriteSeller(
+                                seller['businessId'],
+                              );
+                            },
+                            child: const Icon(
+                              Icons.favorite,
+                              color: Colors.red,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
+          );
+        },
+      ),
     );
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'item_data.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'item_detail_page.dart';
 import 'favorites_page.dart';
 import 'cart_page.dart';
@@ -14,40 +14,8 @@ class ShopPage extends StatefulWidget {
 class _ShopPageState extends State<ShopPage> {
   String searchQuery = '';
 
-  // Map icon names to actual icons
-  IconData getItemIcon(String iconName) {
-    switch (iconName) {
-      case 'apple':
-        return Icons.apple;
-      case 'lunch_dining':
-        return Icons.lunch_dining;
-      case 'local_drink':
-        return Icons.local_drink;
-      case 'takeout_dining':
-        return Icons.takeout_dining;
-      case 'bakery_dining':
-        return Icons.bakery_dining;
-      case 'cookie':
-        return Icons.cookie;
-      case 'egg':
-        return Icons.egg;
-      case 'blender':
-        return Icons.blender;
-      default:
-        return Icons.fastfood;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final filteredItems = shopItems
-        .where((item) =>
-            item['name'].toLowerCase().contains(searchQuery.toLowerCase()) ||
-            item['seller'].toLowerCase().contains(searchQuery.toLowerCase()) ||
-            (item['tags'] as List<String>).any(
-                (tag) => tag.toLowerCase().contains(searchQuery.toLowerCase())))
-        .toList();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Shop'),
@@ -55,13 +23,17 @@ class _ShopPageState extends State<ShopPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.favorite_border),
-            onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const FavoritesPage())),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const FavoritesPage()),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.shopping_cart_outlined),
-            onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const CartPage())),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CartPage()),
+            ),
           ),
         ],
       ),
@@ -69,7 +41,6 @@ class _ShopPageState extends State<ShopPage> {
         padding: const EdgeInsets.all(12.0),
         child: Column(
           children: [
-            // Search bar
             TextField(
               onChanged: (value) {
                 setState(() {
@@ -84,99 +55,121 @@ class _ShopPageState extends State<ShopPage> {
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.grey.shade100,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
             ),
             const SizedBox(height: 12),
 
-            // Items grid
             Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  childAspectRatio: 1.5,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemCount: filteredItems.length,
-                itemBuilder: (context, index) {
-                  final item = filteredItems[index];
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('products')
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                  return GestureDetector(
-                    onTap: () {
-                      // Navigate to item detail page
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ItemDetailPage(item: item),
+                  final docs = snapshot.data!.docs;
+
+                  final products = docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    data['productId'] = doc.id;
+                    return data;
+                  }).toList();
+
+                  final filtered = products.where((item) {
+                    final name = (item['name'] ?? '').toString().toLowerCase();
+                    final category = (item['category'] ?? '').toString().toLowerCase();
+
+                    return name.contains(searchQuery.toLowerCase()) ||
+                        category.contains(searchQuery.toLowerCase());
+                  }).toList();
+
+                  return GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.85,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final item = filtered[index];
+
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  ItemDetailPage(item: item),
+                            ),
+                          );
+                        },
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Icon(
+                                      Icons.fastfood,
+                                      size: 40,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+
+                                Text(
+                                  item['name'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+
+                                const SizedBox(height: 4),
+
+                                Text(
+                                  '\$${(item['price'] ?? 0).toString()}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+
+                                const SizedBox(height: 2),
+
+                                Text(
+                                  item['category'] ?? '',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       );
                     },
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Item icon/image placeholder
-                            Expanded(
-                              flex: 3,
-                              child: Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade100,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Icon(
-                                  getItemIcon(item['imageIcon']),
-                                  size: 32,
-                                  color: Colors.green.shade700,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-
-                            // Item name
-                            Text(
-                              item['name'],
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-
-                            // Seller name
-                            Text(
-                              item['seller'],
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Colors.grey.shade600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-
-                            // Price
-                            Text(
-                              '\$${item['price'].toStringAsFixed(2)}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   );
                 },
               ),
