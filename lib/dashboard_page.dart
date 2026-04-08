@@ -6,6 +6,8 @@ import 'services/firestore_service.dart';
 import 'auth/seller_signup_page.dart';
 
 import 'geocode_businesses_page.dart';
+import 'import_usda_page.dart';
+
 
 
 class DashboardPage extends StatefulWidget {
@@ -405,6 +407,22 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                         child: const Text("Admin: Geocode Businesses"),
                       ),
                       */
+
+                      // BUTTON FOR USDA IMPORT
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ImportUSDAPage(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                        ),
+                        child: const Text("Import USDA Data"),
+                      ),
 
                       const SizedBox(height: 30),
 
