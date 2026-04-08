@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'business_detail_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'services/firestore_service.dart';
 
 class ItemDetailPage extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -9,6 +10,7 @@ class ItemDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final FirestoreService firestoreService = FirestoreService();
     final String name = item['name'] ?? '';
     final String description = item['description'] ?? '';
     final String businessId = item['businessId'] ?? '';
@@ -110,6 +112,8 @@ class ItemDetailPage extends StatelessWidget {
                     height: 50,
                     child: ElevatedButton(
                       onPressed: () {
+                        firestoreService.addToCart(item);
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('$name added to cart!'),

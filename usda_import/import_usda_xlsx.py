@@ -121,8 +121,25 @@ def import_row(row, headers, directory):
             data[header.lower().strip()] = row[i]
     
     # Get address and extract state
-    address = safe_str(data.get("location_address", ""))
-    state = extract_state_from_address(address)
+    raw_address = safe_str(data.get("location_address", ""))
+    state = extract_state_from_address(raw_address)
+
+    # Separate address from extra info (in parentheses)
+    address = raw_address
+    extra_location_info = ""
+
+    # Extract anything in parentheses
+    paren_match = re.search(r'\(([^)]+)\)', raw_address)
+    if paren_match:
+        extra_location_info = paren_match.group(1).strip()
+        address = re.sub(r'\s*\([^)]+\)\s*', ' ', raw_address).strip()
+
+    # Also check for notes after semicolons
+    if ';' in address:
+        parts = address.split(';', 1)
+        address = parts[0].strip()
+        if len(parts) > 1 and parts[1].strip():
+            extra_location_info = (extra_location_info + " " + parts[1].strip()).strip()
     
     # Filter by state if configured
     if STATE_FILTER and state and state.lower() != STATE_FILTER.lower():
@@ -157,7 +174,7 @@ def import_row(row, headers, directory):
             "name": name,
             "address": address,
             "description": safe_str(data.get("listing_desc")) or "Local food vendor from USDA directory",
-            "locationDetails": safe_str(data.get("location_desc")),
+            "locationDetails": ((safe_str(data.get("location_desc")) + " " + extra_location_info).strip()),
             "latitude": lat,
             "longitude": lng,
             "website": safe_str(data.get("media_website")),
