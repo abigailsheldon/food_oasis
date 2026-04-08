@@ -3,6 +3,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'business_detail_page.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'cart_page.dart';
+import 'favorites_page.dart';
 
 
 class NavigatePage extends StatefulWidget {
@@ -159,6 +161,20 @@ class _NavigatePageState extends State<NavigatePage> {
         backgroundColor: Colors.green.shade50,
         actions: [
           IconButton(
+            icon: const Icon(Icons.favorite_border),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const FavoritesPage()),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CartPage()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadBusinessMarkers,
             tooltip: 'Refresh markers',
@@ -182,7 +198,7 @@ class _NavigatePageState extends State<NavigatePage> {
             zoomControlsEnabled: true,
             mapToolbarEnabled: true,
           ),
-          
+
           // Search bar
           Positioned(
             top: 10,

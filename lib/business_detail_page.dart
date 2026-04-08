@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'cart_page.dart';
 
 import 'services/firestore_service.dart';
 
@@ -78,6 +79,13 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                       ),
                       prefixIcon: Icon(Icons.search),
                     ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart_outlined),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CartPage()),
                   ),
                 ),
               ],

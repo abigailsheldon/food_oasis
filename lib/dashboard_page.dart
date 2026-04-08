@@ -408,27 +408,99 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
 
                       const SizedBox(height: 30),
 
-                      const Text(
-                        "Products",
-                        style: TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.bold),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "Products",
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EditItemPage(
+                                    businessId: widget.businessId ?? '',
+                                    product: const {},
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text("Add Product"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
 
                       const SizedBox(height: 10),
 
                       if (products.isEmpty)
-                        const Text("No products yet.")
+                        const Text("No products yet. Tap 'Add Product' to create one!")
                       else
                         Column(
                           children: products.map((doc) {
-                            final data =
-                                doc.data() as Map<String, dynamic>;
+                            final data = doc.data() as Map<String, dynamic>;
+                            data['productId'] = doc.id;
 
                             return Card(
                               child: ListTile(
                                 title: Text(data["name"] ?? ""),
                                 subtitle: Text(
                                     "Price: \$${data["price"]} | Stock: ${data["quantity"]}"),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, color: Colors.blue),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => EditItemPage(
+                                              productId: doc.id,
+                                              businessId: widget.businessId ?? '',
+                                              product: data,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, color: Colors.red),
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text("Delete Product"),
+                                            content: Text("Are you sure you want to delete '${data['name']}'?"),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context, false),
+                                                child: const Text("Cancel"),
+                                              ),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context, true),
+                                                child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+
+                                        if (confirm == true) {
+                                          await FirebaseFirestore.instance
+                                              .collection('products')
+                                              .doc(doc.id)
+                                              .delete();
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           }).toList(),
