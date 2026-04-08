@@ -1,3 +1,6 @@
+/* File to add lat/long values to pre-existing businesses in Firestore*/
+// Used for debugging & troubleshooting Firestore integration
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geocoding/geocoding.dart';
@@ -50,7 +53,7 @@ class _GeocodeBusinessesPageState extends State<GeocodeBusinessesPage> {
 
       // Geocode the address
       try {
-        _addLog('🔍 $name - geocoding "$address"...');
+        _addLog('$name - geocoding "$address"...');
         
         List<Location> locations = await locationFromAddress(address);
         
@@ -63,14 +66,14 @@ class _GeocodeBusinessesPageState extends State<GeocodeBusinessesPage> {
             'longitude': lng,
           });
 
-          _addLog('✅ $name - updated ($lat, $lng)');
+          _addLog('$name - updated ($lat, $lng)');
           updated++;
         } else {
-          _addLog('❌ $name - no results found');
+          _addLog('$name - no results found');
           failed++;
         }
       } catch (e) {
-        _addLog('❌ $name - error: $e');
+        _addLog('$name - error: $e');
         failed++;
       }
 
