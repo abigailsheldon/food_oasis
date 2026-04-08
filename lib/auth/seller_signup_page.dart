@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../main.dart';  // for AuthWrapper
-
+import 'package:geocoding/geocoding.dart';
+import '../main.dart';
 
 class SellerOnboardingPage extends StatefulWidget {
   const SellerOnboardingPage({super.key});
@@ -47,10 +47,42 @@ class _SellerOnboardingPageState extends State<SellerOnboardingPage> {
     }
   }
 
+  // Geocode address to get latitude and longitude
+  Future<Map<String, double>?> _geocodeAddress(String address) async {
+    try {
+      List<Location> locations = await locationFromAddress(address);
+      if (locations.isNotEmpty) {
+        return {
+          'latitude': locations.first.latitude,
+          'longitude': locations.first.longitude,
+        };
+      }
+    } catch (e) {
+      debugPrint('Geocoding error: $e');
+    }
+    return null;
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => isLoading = true);
+
+    // Geocode the address
+    final coordinates = await _geocodeAddress(_address.text.trim());
+
+    if (coordinates == null) {
+      setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not find location for this address. Please check and try again.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
 
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
@@ -81,6 +113,8 @@ class _SellerOnboardingPageState extends State<SellerOnboardingPage> {
       "acceptingReservations": acceptingReservations,
       "ownerUid": uid,
       "createdAt": FieldValue.serverTimestamp(),
+      "latitude": coordinates['latitude'],
+      "longitude": coordinates['longitude'],
     });
 
     await FirebaseFirestore.instance.collection('users').doc(uid).update({

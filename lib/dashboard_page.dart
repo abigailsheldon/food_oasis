@@ -5,6 +5,9 @@ import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'auth/seller_signup_page.dart';
 
+import 'geocode_businesses_page.dart';
+
+
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -382,6 +385,26 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                         onPressed: _saveProfile,
                         child: const Text("Save Profile"),
                       ),
+
+                      // FOR TESTING GOOGLE MAPS API
+                      /*
+                      const SizedBox(height: 12),
+
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const GeocodeBusinessesPage(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                        ),
+                        child: const Text("Admin: Geocode Businesses"),
+                      ),
+                      */
 
                       const SizedBox(height: 30),
 
