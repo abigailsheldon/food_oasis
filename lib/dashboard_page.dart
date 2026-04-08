@@ -63,6 +63,19 @@ class _DashboardPageState extends State<DashboardPage> {
     // ---------------- BUYER DASHBOARD ----------------
     if (role == "buyer") {
       return Scaffold(
+        appBar: AppBar(
+          title: const Text('Dashboard'),
+          backgroundColor: Colors.green.shade50,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.red),
+              onPressed: () async {
+                await _authService.signOut();
+              },
+              tooltip: 'Logout',
+            ),
+          ],
+        ),
         body: Center(
           child: ElevatedButton(
             onPressed: () {

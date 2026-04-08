@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../main.dart';  // for AuthWrapper
+
+
 class SellerOnboardingPage extends StatefulWidget {
   const SellerOnboardingPage({super.key});
 
@@ -88,7 +91,11 @@ class _SellerOnboardingPageState extends State<SellerOnboardingPage> {
     setState(() => isLoading = false);
 
     if (mounted) {
-      Navigator.of(context).pop();
+      // Clear navigation stack and restart at AuthWrapper to refresh user data
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthWrapper()),
+        (route) => false,
+      );
     }
   }
 

@@ -89,8 +89,8 @@ class _ShopPageState extends State<ShopPage> {
                   return GridView.builder(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.85,
+                      crossAxisCount: 4,
+                      childAspectRatio: 0.7,
                       crossAxisSpacing: 10,
                       mainAxisSpacing: 10,
                     ),
