@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'app_bottom_nav.dart';
+
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -176,6 +178,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ],
         ),
       ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
     );
   }
 

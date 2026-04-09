@@ -5,6 +5,7 @@ import 'cart_page.dart';
 import 'shop_page.dart';
 import 'item_detail_page.dart';
 import 'business_detail_page.dart';
+import 'app_bottom_nav.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -234,6 +235,7 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+      //bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
     );
   }
 }
@@ -391,6 +393,7 @@ class CategoryProductsPage extends StatelessWidget {
           );
         },
       ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
     );
   }
 }

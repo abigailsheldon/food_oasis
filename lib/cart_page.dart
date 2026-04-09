@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'services/firestore_service.dart';
 import 'checkout_page.dart';
+import 'app_bottom_nav.dart';
+
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -262,6 +264,7 @@ class _CartPageState extends State<CartPage> {
           );
         },
       ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
     );
   }
 }

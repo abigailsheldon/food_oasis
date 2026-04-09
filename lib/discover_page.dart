@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'business_detail_page.dart';
 import 'favorites_page.dart';
 import 'cart_page.dart';
+import 'app_bottom_nav.dart';
 
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});

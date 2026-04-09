@@ -5,6 +5,7 @@ import 'business_detail_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'cart_page.dart';
 import 'favorites_page.dart';
+import 'app_bottom_nav.dart';
 
 
 class NavigatePage extends StatefulWidget {
@@ -432,6 +433,7 @@ class _NavigatePageState extends State<NavigatePage> {
             ),
         ],
       ),
+      //bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
     );
   }
 }
