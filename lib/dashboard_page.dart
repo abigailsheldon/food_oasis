@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'edit_item_page.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
@@ -837,9 +838,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
               leading: const Icon(Icons.person),
               title: const Text("Account Settings"),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: Implement account settings
-              },
+              onTap: () => _showAccountSettingsDialog(context),
             ),
           ),
 
@@ -848,9 +847,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
               leading: const Icon(Icons.notifications),
               title: const Text("Notifications"),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: Implement notifications settings
-              },
+              onTap: () => _showNotificationsDialog(context),
             ),
           ),
 
@@ -859,9 +856,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
               leading: const Icon(Icons.payment),
               title: const Text("Payment Methods"),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: Implement payment settings
-              },
+              onTap: () => _showPaymentMethodsDialog(context),
             ),
           ),
 
@@ -870,9 +865,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
               leading: const Icon(Icons.help),
               title: const Text("Help & Support"),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: Implement help
-              },
+              onTap: () => _showHelpSupportDialog(context),
             ),
           ),
 
@@ -890,6 +883,596 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
           ),
         ],
       ),
+    );
+  }
+
+  // ============== SETTINGS DIALOGS ==============
+
+  void _showAccountSettingsDialog(BuildContext context) {
+    final user = widget.authService.currentUser;
+    if (user == null) return;
+
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get()
+        .then((doc) {
+      if (doc.exists) {
+        nameController.text = doc.data()?['name'] ?? '';
+        phoneController.text = doc.data()?['phone'] ?? '';
+      }
+    });
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Account Settings'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: TextEditingController(text: user.email),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                ),
+                readOnly: true,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Display Name',
+                  prefixIcon: Icon(Icons.person),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  prefixIcon: Icon(Icons.phone),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showChangePasswordDialog(context);
+                },
+                icon: const Icon(Icons.lock),
+                label: const Text('Change Password'),
+              ),
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showDeleteAccountDialog(context);
+                },
+                icon: const Icon(Icons.delete_forever, color: Colors.red),
+                label: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .update({
+                'name': nameController.text.trim(),
+                'phone': phoneController.text.trim(),
+              });
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Account updated successfully')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Change Password'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: currentPasswordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Current Password',
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: newPasswordController,
+                  decoration: const InputDecoration(
+                    labelText: 'New Password',
+                    prefixIcon: Icon(Icons.lock),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: confirmPasswordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirm New Password',
+                    prefixIcon: Icon(Icons.lock),
+                  ),
+                  obscureText: true,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      if (newPasswordController.text != confirmPasswordController.text) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Passwords do not match')),
+                        );
+                        return;
+                      }
+
+                      if (newPasswordController.text.length < 6) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Password must be at least 6 characters')),
+                        );
+                        return;
+                      }
+
+                      setState(() => isLoading = true);
+
+                      try {
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user != null && user.email != null) {
+                          final credential = EmailAuthProvider.credential(
+                            email: user.email!,
+                            password: currentPasswordController.text,
+                          );
+                          await user.reauthenticateWithCredential(credential);
+                          await user.updatePassword(newPasswordController.text);
+
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Password changed successfully')),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        setState(() => isLoading = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Change Password', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context) {
+    final passwordController = TextEditingController();
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Delete Account'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Are you sure you want to delete your account? This action cannot be undone.',
+                style: TextStyle(color: Colors.red),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Enter your password to confirm',
+                  prefixIcon: Icon(Icons.lock),
+                ),
+                obscureText: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      setState(() => isLoading = true);
+
+                      try {
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user != null && user.email != null) {
+                          final credential = EmailAuthProvider.credential(
+                            email: user.email!,
+                            password: passwordController.text,
+                          );
+                          await user.reauthenticateWithCredential(credential);
+
+                          // Delete user data from Firestore
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(user.uid)
+                              .delete();
+
+                          // Delete the auth account
+                          await user.delete();
+
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        }
+                      } catch (e) {
+                        setState(() => isLoading = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Delete Account', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNotificationsDialog(BuildContext context) {
+    final user = widget.authService.currentUser;
+    if (user == null) return;
+
+    bool orderUpdates = true;
+    bool newOrders = true;
+    bool reviews = true;
+    bool emailNotifications = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Notification Preferences'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SwitchListTile(
+                  title: const Text('New Customer Orders'),
+                  subtitle: const Text('When customers place orders'),
+                  value: newOrders,
+                  onChanged: (value) => setState(() => newOrders = value),
+                  activeColor: Colors.green,
+                ),
+                const Divider(),
+                SwitchListTile(
+                  title: const Text('Your Purchase Updates'),
+                  subtitle: const Text('Status of your own orders'),
+                  value: orderUpdates,
+                  onChanged: (value) => setState(() => orderUpdates = value),
+                  activeColor: Colors.green,
+                ),
+                const Divider(),
+                SwitchListTile(
+                  title: const Text('New Reviews'),
+                  subtitle: const Text('When customers leave reviews'),
+                  value: reviews,
+                  onChanged: (value) => setState(() => reviews = value),
+                  activeColor: Colors.green,
+                ),
+                const Divider(),
+                SwitchListTile(
+                  title: const Text('Email Notifications'),
+                  subtitle: const Text('Receive notifications via email'),
+                  value: emailNotifications,
+                  onChanged: (value) => setState(() => emailNotifications = value),
+                  activeColor: Colors.green,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .update({
+                  'notificationPrefs': {
+                    'orderUpdates': orderUpdates,
+                    'newOrders': newOrders,
+                    'reviews': reviews,
+                    'emailNotifications': emailNotifications,
+                  },
+                });
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Notification preferences saved')),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('Save', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPaymentMethodsDialog(BuildContext context) {
+    final user = widget.authService.currentUser;
+    if (user == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Payment Methods'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .collection('savedCards')
+                .orderBy('createdAt', descending: true)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final cards = snapshot.data!.docs;
+
+              if (cards.isEmpty) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.credit_card_off, size: 60, color: Colors.grey.shade400),
+                    const SizedBox(height: 12),
+                    const Text('No saved payment methods'),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Cards saved during checkout will appear here',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                );
+              }
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ...cards.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: Icon(Icons.credit_card, color: Colors.green.shade700),
+                        title: Text(data['nickname'] ?? 'Saved Card'),
+                        subtitle: Text('•••• ${data['lastFour']} | Exp: ${data['expiry']}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Remove Card'),
+                                content: const Text('Are you sure you want to remove this card?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('Remove', style: TextStyle(color: Colors.red)),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirm == true) {
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(user.uid)
+                                  .collection('savedCards')
+                                  .doc(doc.id)
+                                  .delete();
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 12),
+                  Text(
+                    'To add a new card, save it during checkout',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Done', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHelpSupportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Help & Support'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Seller FAQ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+
+              _buildFaqItem(
+                'How do I add products?',
+                'Go to Products section and tap "Add Product" to create a new listing.',
+              ),
+              _buildFaqItem(
+                'How do I update my business hours?',
+                'Go to Profile section and edit your business hours, then save.',
+              ),
+              _buildFaqItem(
+                'How do I view my reviews?',
+                'Click on "Reviews" in the sidebar to see all customer reviews.',
+              ),
+              _buildFaqItem(
+                'Can I also buy from other sellers?',
+                'Yes! Browse the Shop and Discover pages to find products from other sellers.',
+              ),
+
+              const Divider(height: 32),
+
+              const Text(
+                'Contact Us',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+
+              ListTile(
+                leading: const Icon(Icons.email, color: Colors.green),
+                title: const Text('Email Support'),
+                subtitle: const Text('sellers@foodoasis.app'),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.phone, color: Colors.green),
+                title: const Text('Phone Support'),
+                subtitle: const Text('1-800-FOOD-OASIS'),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+
+              const Divider(height: 32),
+
+              const Text(
+                'About Food Oasis',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Food Oasis connects local buyers with healthy food sellers in their community.',
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Version 1.0.0',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Close', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFaqItem(String question, String answer) {
+    return ExpansionTile(
+      title: Text(question, style: const TextStyle(fontSize: 14)),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 8),
+      children: [
+        Text(
+          answer,
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+        ),
+      ],
     );
   }
 
