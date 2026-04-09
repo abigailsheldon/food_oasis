@@ -49,19 +49,26 @@ class _HomePageState extends State<HomePage> {
     }
 
     Future<void> _loadFeaturedSellers() async {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('businesses')
-          .limit(6)
-          .get();
+    // Fetch more businesses than we need
+    final snapshot = await FirebaseFirestore.instance
+        .collection('businesses')
+        .limit(20)  // Get more so we have variety
+        .get();
 
-      setState(() {
-        featuredSellers = snapshot.docs.map((doc) {
-          final data = doc.data();
-          data['businessId'] = doc.id;
-          return data;
-        }).toList();
-      });
-    }
+    final allSellers = snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['businessId'] = doc.id;
+      return data;
+    }).toList();
+
+    // Shuffle randomly
+    allSellers.shuffle();
+
+    setState(() {
+      // Take first 6 after shuffling
+      featuredSellers = allSellers.take(6).toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

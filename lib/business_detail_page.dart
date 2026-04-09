@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'cart_page.dart';
 
@@ -56,185 +57,518 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
     final String source = seller['source'] ?? '';
 
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // HEADER
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                Expanded(
-                  child: TextField(
-                    onChanged: (value) {
-                      setState(() => searchQuery = value);
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'Search for an item',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(20)),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 16.0),
+          child: Column(
+            children: [
+              // HEADER
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      onChanged: (value) {
+                        setState(() => searchQuery = value);
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Search for an item',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(20)),
+                        ),
+                        prefixIcon: Icon(Icons.search),
                       ),
-                      prefixIcon: Icon(Icons.search),
                     ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.shopping_cart_outlined),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const CartPage()),
+                  IconButton(
+                    icon: const Icon(Icons.shopping_cart_outlined),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const CartPage()),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // CONTENT
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    
-                    // BUSINESS HEADER
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: const TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (directory.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade100,
-                                    borderRadius: BorderRadius.circular(12),
+              // CONTENT
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      
+                      // BUSINESS HEADER
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  child: Text(
-                                    directory,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.green.shade800,
-                                      fontWeight: FontWeight.w500,
+                                ),
+                                if (directory.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      directory,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.green.shade800,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
-                        ),
 
-                        IconButton(
-                          icon: Icon(
-                            favoriteSellerIds.contains(widget.seller['businessId'])
-                                ? Icons.favorite
-                                : Icons.favorite_border,
+                          IconButton(
+                            icon: Icon(
+                              favoriteSellerIds.contains(widget.seller['businessId'])
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                            ),
+                            color: Colors.red,
+                            onPressed: () {
+                              final businessId = widget.seller['businessId'] ?? '';
+                              if (businessId.isNotEmpty) {
+                                _firestoreService.toggleFavoriteSeller(businessId);
+                              }
+                            },
                           ),
-                          color: Colors.red,
-                          onPressed: () {
-                            final businessId = widget.seller['businessId'] ?? '';
-                            if (businessId.isNotEmpty) {
-                              _firestoreService.toggleFavoriteSeller(businessId);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-                    const Divider(),
-                    const SizedBox(height: 12),
-
-                  const SizedBox(height: 16),
-
-                  // Address
-                  if (address.isNotEmpty)
-                    _buildInfoRow(Icons.location_on, address),
-
-                  // Location details
-                  if (locationDetails.isNotEmpty)
-                    _buildInfoRow(Icons.info_outline, locationDetails),
-
-                  // Seasonality
-                  if (seasonality.isNotEmpty)
-                    _buildInfoRow(Icons.calendar_today, 'Season: $seasonality'),
-
-                  // Phone
-                  if (phone.isNotEmpty)
-                    _buildTappableRow(Icons.phone, phone, () => _launchUrl('tel:$phone')),
-
-                  // Email
-                  if (email.isNotEmpty)
-                    _buildTappableRow(Icons.email, email, () => _launchUrl('mailto:$email')),
-
-                  // Website
-                  if (website.isNotEmpty)
-                    _buildTappableRow(
-                      Icons.language,
-                      website,
-                      () => _launchUrl(website.startsWith('http') ? website : 'https://$website'),
-                    ),
-
-                  const SizedBox(height: 16),
-
-                  // Description
-                  if (description.isNotEmpty && description != 'Local food vendor from USDA directory') ...[
-                    const Text('About', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text(description, style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Certifications
-                  if (certifications.isNotEmpty)
-                    _buildTagSection('Certifications', Icons.verified, certifications, Colors.blue),
-
-                  // Payment Methods
-                  if (paymentMethods.isNotEmpty)
-                    _buildTagSection('Payment Methods', Icons.payment, paymentMethods, Colors.purple),
-
-                  // Food Assistance
-                  if (foodAssistance.isNotEmpty)
-                    _buildTagSection('Food Assistance Accepted', Icons.card_giftcard, foodAssistance, Colors.orange),
-
-                  // Products
-                  if (products.isNotEmpty)
-                    _buildTagSection('Products Available', Icons.shopping_basket, products, Colors.green),
-
-                  const Divider(),
-                  const SizedBox(height: 8),
-
-                    const Text(
-                      'Available Items',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        ],
                       ),
-                    ),
 
-                    const SizedBox(height: 12),
+                      // RATING SUMMARY
+                      _buildRatingSummary(),
 
-                    _buildItemsStream(),
-                  ],
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 12),
+
+                    const SizedBox(height: 16),
+
+                    // Address
+                    if (address.isNotEmpty)
+                      _buildInfoRow(Icons.location_on, address),
+
+                    // Location details
+                    if (locationDetails.isNotEmpty)
+                      _buildInfoRow(Icons.info_outline, locationDetails),
+
+                    // Seasonality
+                    if (seasonality.isNotEmpty)
+                      _buildInfoRow(Icons.calendar_today, 'Season: $seasonality'),
+
+                    // Phone
+                    if (phone.isNotEmpty)
+                      _buildTappableRow(Icons.phone, phone, () => _launchUrl('tel:$phone')),
+
+                    // Email
+                    if (email.isNotEmpty)
+                      _buildTappableRow(Icons.email, email, () => _launchUrl('mailto:$email')),
+
+                    // Website
+                    if (website.isNotEmpty)
+                      _buildTappableRow(
+                        Icons.language,
+                        website,
+                        () => _launchUrl(website.startsWith('http') ? website : 'https://$website'),
+                      ),
+
+                    const SizedBox(height: 16),
+
+                    // Description
+                    if (description.isNotEmpty && description != 'Local food vendor from USDA directory') ...[
+                      const Text('About', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text(description, style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Certifications
+                    if (certifications.isNotEmpty)
+                      _buildTagSection('Certifications', Icons.verified, certifications, Colors.blue),
+
+                    // Payment Methods
+                    if (paymentMethods.isNotEmpty)
+                      _buildTagSection('Payment Methods', Icons.payment, paymentMethods, Colors.purple),
+
+                    // Food Assistance
+                    if (foodAssistance.isNotEmpty)
+                      _buildTagSection('Food Assistance Accepted', Icons.card_giftcard, foodAssistance, Colors.orange),
+
+                    // Products
+                    if (products.isNotEmpty)
+                      _buildTagSection('Products Available', Icons.shopping_basket, products, Colors.green),
+
+                    const Divider(),
+                    const SizedBox(height: 8),
+
+                      const Text(
+                        'Available Items',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      _buildItemsStream(),
+
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 8),
+
+                      // REVIEWS SECTION
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Reviews',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => _showWriteReviewDialog(),
+                            icon: const Icon(Icons.edit, size: 18),
+                            label: const Text('Write a Review'),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      _buildReviewsSection(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  // RATING SUMMARY (shows average stars next to business name)
+  Widget _buildRatingSummary() {
+    final businessId = widget.seller['businessId'] ?? '';
+    if (businessId.isEmpty) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('reviews')
+          .where('businessId', isEqualTo: businessId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'No reviews yet',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
+          );
+        }
+
+        final reviews = snapshot.data!.docs;
+        double totalRating = 0;
+        for (var doc in reviews) {
+          final data = doc.data() as Map<String, dynamic>;
+          totalRating += (data['rating'] ?? 0).toDouble();
+        }
+        final averageRating = totalRating / reviews.length;
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            children: [
+              ...List.generate(5, (i) {
+                return Icon(
+                  i < averageRating.round() ? Icons.star : Icons.star_border,
+                  color: Colors.amber,
+                  size: 18,
+                );
+              }),
+              const SizedBox(width: 8),
+              Text(
+                '${averageRating.toStringAsFixed(1)} (${reviews.length})',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // REVIEWS SECTION
+  Widget _buildReviewsSection() {
+    final businessId = widget.seller['businessId'] ?? '';
+    if (businessId.isEmpty) {
+      return const Text('Unable to load reviews');
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('reviews')
+          .where('businessId', isEqualTo: businessId)
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text('Error: ${snapshot.error}');
+        }
+
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final reviews = snapshot.data!.docs;
+
+        if (reviews.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.rate_review_outlined, size: 40, color: Colors.grey.shade400),
+                const SizedBox(height: 8),
+                Text(
+                  'No reviews yet',
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Be the first to leave a review!',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children: reviews.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final rating = (data['rating'] ?? 0).toInt();
+            final comment = data['comment'] ?? '';
+            final reviewerName = data['reviewerName'] ?? 'Anonymous';
+            final createdAt = data['createdAt'] as Timestamp?;
+            final date = createdAt?.toDate();
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: Colors.green.shade100,
+                              child: Text(
+                                reviewerName.isNotEmpty 
+                                    ? reviewerName[0].toUpperCase() 
+                                    : 'A',
+                                style: TextStyle(
+                                  color: Colors.green.shade700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  reviewerName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                if (date != null)
+                                  Text(
+                                    '${date.month}/${date.day}/${date.year}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: List.generate(5, (i) {
+                            return Icon(
+                              i < rating ? Icons.star : Icons.star_border,
+                              color: Colors.amber,
+                              size: 16,
+                            );
+                          }),
+                        ),
+                      ],
+                    ),
+                    if (comment.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        comment,
+                        style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  // WRITE REVIEW DIALOG
+  void _showWriteReviewDialog() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to leave a review')),
+      );
+      return;
+    }
+
+    int selectedRating = 5;
+    final commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Write a Review'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Star Rating
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      return IconButton(
+                        onPressed: () {
+                          setDialogState(() {
+                            selectedRating = i + 1;
+                          });
+                        },
+                        icon: Icon(
+                          i < selectedRating ? Icons.star : Icons.star_border,
+                          color: Colors.amber,
+                          size: 36,
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+                  // Comment
+                  TextField(
+                    controller: commentController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Comment (optional)',
+                      border: OutlineInputBorder(),
+                      hintText: 'Share your experience...',
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await _submitReview(selectedRating, commentController.text);
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Submit'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // SUBMIT REVIEW TO FIRESTORE
+  Future<void> _submitReview(int rating, String comment) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final businessId = widget.seller['businessId'] ?? '';
+    if (businessId.isEmpty) return;
+
+    // Get user's name from Firestore
+    String reviewerName = 'Anonymous';
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      reviewerName = userDoc.data()?['name'] ?? user.email?.split('@')[0] ?? 'Anonymous';
+    } catch (e) {
+      reviewerName = user.email?.split('@')[0] ?? 'Anonymous';
+    }
+
+    await FirebaseFirestore.instance.collection('reviews').add({
+      'businessId': businessId,
+      'reviewerId': user.uid,
+      'reviewerName': reviewerName,
+      'rating': rating,
+      'comment': comment,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Review submitted!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   // STREAM OF PRODUCTS
@@ -260,6 +594,20 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
           final data = doc.data() as Map<String, dynamic>;
           final productBusinessId = data['businessId'] ?? '';
           return productBusinessId == businessId || productBusinessId == ownerUid;
+        }).toList();
+
+        // Apply search filter
+        final filteredDocs = docs.where((doc) {
+          if (searchQuery.isEmpty) return true;
+          
+          final data = doc.data() as Map<String, dynamic>;
+          final name = (data['name'] ?? '').toString().toLowerCase();
+          final description = (data['description'] ?? '').toString().toLowerCase();
+          final category = (data['category'] ?? '').toString().toLowerCase();
+          
+          return name.contains(searchQuery.toLowerCase()) ||
+                 description.contains(searchQuery.toLowerCase()) ||
+                 category.contains(searchQuery.toLowerCase());
         }).toList();
 
         if (docs.isEmpty) {
@@ -293,8 +641,19 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
           );
         }
 
+        // Show message if search has no results but products exist
+        if (filteredDocs.isEmpty && searchQuery.isNotEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'No items match "$searchQuery"',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          );
+        }
+
         return Column(
-          children: docs.map((doc) {
+          children: filteredDocs.map((doc) {
             final item = doc.data() as Map<String, dynamic>;
             item['productId'] = doc.id;
 
@@ -304,6 +663,7 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
       },
     );
   }
+
   // ITEM CARD
   Widget _buildItemCard(Map<String, dynamic> item) {
     final String name = item['name'] ?? 'Unnamed item';
@@ -441,7 +801,8 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
       ),
     );
   }
-    Widget _buildInfoRow(IconData icon, String text) {
+
+  Widget _buildInfoRow(IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
