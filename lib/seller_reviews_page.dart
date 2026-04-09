@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'app_bottom_nav.dart';
 
 class SellerReviewsPage extends StatelessWidget {
   final String businessId;
@@ -194,6 +195,7 @@ class SellerReviewsPage extends StatelessWidget {
           );
         },
       ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
     );
   }
 }

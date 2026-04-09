@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'cart_page.dart';
+import 'app_bottom_nav.dart';
 
 import 'services/firestore_service.dart';
 
@@ -267,6 +268,7 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
           ),
         ),
       ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
     );
   }
 

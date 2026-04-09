@@ -5,6 +5,7 @@ import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'auth/seller_signup_page.dart';
 import 'seller_reviews_page.dart';
+import 'app_bottom_nav.dart';
 
 
 class DashboardPage extends StatefulWidget {
@@ -91,6 +92,7 @@ class _DashboardPageState extends State<DashboardPage> {
             child: const Text("Sign Up as a Seller"),
           ),
         ),
+        bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
       );
     }
 
@@ -316,6 +318,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
           ),
         ],
       ),
+      //bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
     );
   }
 
