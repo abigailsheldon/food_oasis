@@ -55,6 +55,180 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() => isLoading = false);
   }
 
+  Widget _buildPurchaseHistory() {
+    final user = _authService.currentUser;
+    if (user == null) {
+      return const Text('Please log in to view purchase history');
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('orders')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text('Error: ${snapshot.error}');
+        }
+
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final orders = snapshot.data!.docs;
+
+        if (orders.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.receipt_long_outlined, size: 60, color: Colors.grey.shade400),
+                const SizedBox(height: 12),
+                Text(
+                  'No orders yet',
+                  style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Your purchase history will appear here',
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children: orders.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final items = (data['items'] as List<dynamic>?) ?? [];
+            final total = (data['total'] ?? 0).toDouble();
+            final status = data['status'] ?? 'completed';
+            final createdAt = data['createdAt'] as Timestamp?;
+            final date = createdAt?.toDate();
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ExpansionTile(
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.shopping_bag, color: Colors.green.shade700),
+                ),
+                title: Text(
+                  '\$${total.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text(
+                      date != null
+                          ? '${date.month}/${date.day}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}'
+                          : 'Date unknown',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: status == 'completed' ? Colors.green.shade100 : Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: status == 'completed' ? Colors.green.shade700 : Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                children: [
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  ...items.map((item) {
+                    final itemData = item as Map<String, dynamic>;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.fastfood, size: 20, color: Colors.grey),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        itemData['name'] ?? 'Unknown item',
+                                        style: const TextStyle(fontWeight: FontWeight.w500),
+                                      ),
+                                      Text(
+                                        'Qty: ${itemData['quantity']} × \$${(itemData['price'] ?? 0).toStringAsFixed(2)}',
+                                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '\$${((itemData['price'] ?? 0) * (itemData['quantity'] ?? 1)).toStringAsFixed(2)}',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 8),
+                  const Divider(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        '\$${total.toStringAsFixed(2)}',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green.shade700),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -67,7 +241,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (role == "buyer") {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Dashboard'),
+          title: const Text('My Account'),
           backgroundColor: Colors.green.shade50,
           actions: [
             IconButton(
@@ -79,23 +253,45 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ],
         ),
-        body: Center(
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const SellerOnboardingPage(),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Become a Seller Card
+              Card(
+                color: Colors.green.shade50,
+                child: ListTile(
+                  leading: Icon(Icons.storefront, color: Colors.green.shade700),
+                  title: const Text('Become a Seller'),
+                  subtitle: const Text('Start selling your products'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SellerOnboardingPage(),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-            child: const Text("Sign Up as a Seller"),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Purchase History Section
+              const Text(
+                'Purchase History',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+
+              _buildPurchaseHistory(),
+            ],
           ),
         ),
-        bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
       );
     }
-
     // ---------------- SELLER DASHBOARD ----------------
     return SellerDashboardPage(
       businessId: businessId,
@@ -293,6 +489,12 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   },
                 ),
                 sidebarItem(
+                  Icons.history,
+                  "My Purchases",
+                  isSelected: selectedSection == 'purchases',
+                  onTap: () => setState(() => selectedSection = 'purchases'),
+                ),
+                sidebarItem(
                   Icons.settings,
                   "Settings",
                   isSelected: selectedSection == 'settings',
@@ -328,6 +530,8 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
         return _buildProductsSection();
       case 'orders':
         return _buildOrdersSection();
+      case 'purchases':
+        return _buildPurchasesSection();
       case 'settings':
         return _buildSettingsSection();
       case 'profile':
@@ -688,6 +892,194 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
       ),
     );
   }
+
+  Widget _buildPurchasesSection() {
+    final user = widget.authService.currentUser;
+    if (user == null) {
+      return const Center(child: Text('Please log in to view purchase history'));
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'My Purchase History',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .collection('orders')
+                .orderBy('createdAt', descending: true)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Text('Error: ${snapshot.error}');
+              }
+
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final orders = snapshot.data!.docs;
+
+              if (orders.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.receipt_long_outlined, size: 60, color: Colors.grey.shade400),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No orders yet',
+                        style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Your purchase history will appear here',
+                        style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                children: orders.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final items = (data['items'] as List<dynamic>?) ?? [];
+                  final total = (data['total'] ?? 0).toDouble();
+                  final status = data['status'] ?? 'completed';
+                  final createdAt = data['createdAt'] as Timestamp?;
+                  final date = createdAt?.toDate();
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: ExpansionTile(
+                      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.shopping_bag, color: Colors.green.shade700),
+                      ),
+                      title: Text(
+                        '\$${total.toStringAsFixed(2)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 4),
+                          Text(
+                            date != null
+                                ? '${date.month}/${date.day}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}'
+                                : 'Date unknown',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: status == 'completed' ? Colors.green.shade100 : Colors.orange.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              status.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: status == 'completed' ? Colors.green.shade700 : Colors.orange.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      children: [
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        ...items.map((item) {
+                          final itemData = item as Map<String, dynamic>;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.fastfood, size: 20, color: Colors.grey),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              itemData['name'] ?? 'Unknown item',
+                                              style: const TextStyle(fontWeight: FontWeight.w500),
+                                            ),
+                                            Text(
+                                              'Qty: ${itemData['quantity']} × \$${(itemData['price'] ?? 0).toStringAsFixed(2)}',
+                                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  '\$${((itemData['price'] ?? 0) * (itemData['quantity'] ?? 1)).toStringAsFixed(2)}',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        const SizedBox(height: 8),
+                        const Divider(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              '\$${total.toStringAsFixed(2)}',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green.shade700),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }  
 
   Widget sidebarItem(
     IconData icon,
