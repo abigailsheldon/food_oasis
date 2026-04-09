@@ -69,18 +69,53 @@ class _CheckoutPageState extends State<CheckoutPage> {
       await _saveCardToFirestore();
     }
 
-    // Clear cart after order
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final cartRef = FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('cart');
-      final cartItems = await cartRef.get();
-      for (var doc in cartItems.docs) {
-        await doc.reference.delete();
+
+      final cartSnapshot = await cartRef.get();
+      
+      if (cartSnapshot.docs.isNotEmpty) {
+        // Build order items list
+        final List<Map<String, dynamic>> orderItems = [];
+        double orderTotal = 0;
+
+        for (var doc in cartSnapshot.docs) {
+          final item = doc.data();
+          orderItems.add({
+            'productId': item['productId'] ?? '',
+            'businessId': item['businessId'] ?? '',
+            'name': item['name'] ?? '',
+            'price': item['price'] ?? 0,
+            'quantity': item['quantity'] ?? 1,
+            'unit': item['unit'] ?? '',
+          });
+          orderTotal += (item['price'] ?? 0) * (item['quantity'] ?? 1);
+        }
+
+        // Save order to Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('orders')
+            .add({
+          'items': orderItems,
+          'total': orderTotal,
+          'status': 'completed',
+          'deliveryAddress': '${_addressController.text}, ${_cityController.text}',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Clear cart after saving order
+        for (var doc in cartSnapshot.docs) {
+          await doc.reference.delete();
+        }
       }
     }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
