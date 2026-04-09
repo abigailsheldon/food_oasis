@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'app_bottom_nav.dart';
-
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -17,8 +18,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final _cardNumberController = TextEditingController();
   final _expiryController = TextEditingController();
   final _cvvController = TextEditingController();
+  final _cardNicknameController = TextEditingController();
 
   String selectedPayment = 'Credit Card';
+  String? selectedSavedCard;
+  bool saveCard = false;
+  bool useNewCard = true;
 
   @override
   void dispose() {
@@ -29,10 +34,53 @@ class _CheckoutPageState extends State<CheckoutPage> {
     _cardNumberController.dispose();
     _expiryController.dispose();
     _cvvController.dispose();
+    _cardNicknameController.dispose();
     super.dispose();
   }
 
-  void _placeOrder() {
+  Future<void> _saveCardToFirestore() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final cardNumber = _cardNumberController.text.replaceAll(' ', '');
+    if (cardNumber.length < 4) return;
+
+    final lastFour = cardNumber.substring(cardNumber.length - 4);
+    final nickname = _cardNicknameController.text.isNotEmpty
+        ? _cardNicknameController.text
+        : '$selectedPayment ending in $lastFour';
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('savedCards')
+        .add({
+      'nickname': nickname,
+      'lastFour': lastFour,
+      'expiry': _expiryController.text,
+      'cardType': selectedPayment,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  void _placeOrder() async {
+    // Save card if checkbox is checked
+    if (saveCard && useNewCard) {
+      await _saveCardToFirestore();
+    }
+
+    // Clear cart after order
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final cartRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('cart');
+      final cartItems = await cartRef.get();
+      for (var doc in cartItems.docs) {
+        await doc.reference.delete();
+      }
+    }
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -100,8 +148,48 @@ class _CheckoutPageState extends State<CheckoutPage> {
             _sectionHeader(Icons.payment_outlined, 'Payment Method'),
             const SizedBox(height: 12),
 
-            // Payment toggle
-            Row(
+            // Saved Cards
+            _buildSavedCardsSection(),
+
+            const SizedBox(height: 16),
+
+            // Use new card toggle
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  useNewCard = true;
+                  selectedSavedCard = null;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: useNewCard ? Colors.green.shade50 : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: useNewCard ? Colors.green : Colors.grey.shade300,
+                    width: useNewCard ? 2 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      useNewCard ? Icons.radio_button_checked : Icons.radio_button_off,
+                      color: useNewCard ? Colors.green : Colors.grey,
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Use a new card', style: TextStyle(fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Only show new card form if useNewCard is true
+            if (useNewCard) ...[
+              // Payment toggle
+              Row(
               children: ['Credit Card', 'Debit Card'].map((method) {
                 final selected = selectedPayment == method;
                 return Padding(
@@ -153,8 +241,28 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 12),
 
+            // Save card checkbox
+            Row(
+              children: [
+                Checkbox(
+                  value: saveCard,
+                  onChanged: (value) => setState(() => saveCard = value ?? false),
+                  activeColor: Colors.green,
+                ),
+                const Text('Save this card for future purchases'),
+              ],
+            ),
+
+            if (saveCard) ...[
+              const SizedBox(height: 8),
+              _buildTextField(_cardNicknameController, 'Card nickname (optional)', Icons.label_outline),
+            ],
+            ], // Close the if (useNewCard) block
+
+            const SizedBox(height: 32),
+          
             // Place Order button
             SizedBox(
               width: double.infinity,
@@ -217,4 +325,86 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
     );
   }
+
+  Widget _buildSavedCardsSection() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('savedCards')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final cards = snapshot.data!.docs;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Saved Cards', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade700)),
+            const SizedBox(height: 8),
+            ...cards.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final cardId = doc.id;
+              final isSelected = selectedSavedCard == cardId;
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedSavedCard = cardId;
+                    useNewCard = false;
+                  });
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.green.shade50 : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isSelected ? Colors.green : Colors.grey.shade300, width: isSelected ? 2 : 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(isSelected ? Icons.radio_button_checked : Icons.radio_button_off, color: isSelected ? Colors.green : Colors.grey),
+                      const SizedBox(width: 12),
+                      Icon(Icons.credit_card, color: Colors.grey.shade600),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(data['nickname'] ?? 'Saved Card', style: const TextStyle(fontWeight: FontWeight.w500)),
+                            Text('•••• ${data['lastFour']} | Exp: ${data['expiry']}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
+                        onPressed: () async {
+                          await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('savedCards').doc(cardId).delete();
+                          if (selectedSavedCard == cardId) {
+                            setState(() {
+                              selectedSavedCard = null;
+                              useNewCard = true;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ],
+        );
+      },
+    );
+  }
 }
+
