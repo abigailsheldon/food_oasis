@@ -4,6 +4,7 @@ import 'edit_item_page.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'auth/seller_signup_page.dart';
+import 'edit_item_page.dart';
 
 import 'geocode_businesses_page.dart';
 

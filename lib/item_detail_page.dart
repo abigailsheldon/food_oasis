@@ -181,11 +181,14 @@ class ItemDetailPage extends StatelessWidget {
                           return;
                         }
 
+                        final sellerData = doc.data()!;
+                        sellerData['businessId'] = doc.id;  // Add the document ID
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => BusinessDetailPage(
-                              seller: doc.data()!,
+                              seller: sellerData,
                             ),
                           ),
                         );
