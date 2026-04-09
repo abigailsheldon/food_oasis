@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'business_detail_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'services/firestore_service.dart';
+import 'cart_page.dart';
+
 
 class ItemDetailPage extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -21,6 +23,15 @@ class ItemDetailPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(name),
         backgroundColor: Colors.green.shade50,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CartPage()),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -170,11 +181,14 @@ class ItemDetailPage extends StatelessWidget {
                           return;
                         }
 
+                        final sellerData = doc.data()!;
+                        sellerData['businessId'] = doc.id;  // Add the document ID
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => BusinessDetailPage(
-                              seller: doc.data()!,
+                              seller: sellerData,
                             ),
                           ),
                         );

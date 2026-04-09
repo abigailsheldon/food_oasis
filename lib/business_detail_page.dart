@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'cart_page.dart';
 
 import 'services/firestore_service.dart';
 
@@ -78,6 +79,13 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                       ),
                       prefixIcon: Icon(Icons.search),
                     ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart_outlined),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CartPage()),
                   ),
                 ),
               ],
@@ -232,11 +240,11 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
   // STREAM OF PRODUCTS
   Widget _buildItemsStream() {
     final String businessId = widget.seller['businessId'] ?? '';
+    final String ownerUid = widget.seller['ownerUid'] ?? '';
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('products')
-          .where('businessId', isEqualTo: businessId)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -247,11 +255,16 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final docs = snapshot.data!.docs;
+        // Filter products that match either businessId or ownerUid
+        final docs = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final productBusinessId = data['businessId'] ?? '';
+          return productBusinessId == businessId || productBusinessId == ownerUid;
+        }).toList();
 
         if (docs.isEmpty) {
           final source = widget.seller['source'] ?? '';
-          
+
           if (source == 'USDA') {
             return Container(
               padding: const EdgeInsets.all(16),
@@ -291,7 +304,6 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
       },
     );
   }
-
   // ITEM CARD
   Widget _buildItemCard(Map<String, dynamic> item) {
     final String name = item['name'] ?? 'Unnamed item';
