@@ -6,6 +6,7 @@ import 'shop_page.dart';
 import 'item_detail_page.dart';
 import 'business_detail_page.dart';
 import 'app_bottom_nav.dart';
+import 'cart_icon_badge.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -85,13 +86,7 @@ class _HomePageState extends State<HomePage> {
               MaterialPageRoute(builder: (context) => const FavoritesPage()),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const CartPage()),
-            ),
-          ),
+          const CartIconBadge(),
         ],
       ),
       body: Padding(
@@ -267,14 +262,8 @@ class CategoryProductsPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(categoryName),
         backgroundColor: Colors.green.shade50,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const CartPage()),
-            ),
-          ),
+        actions: const [
+          CartIconBadge(),
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -322,8 +311,8 @@ class CategoryProductsPage extends StatelessWidget {
           return GridView.builder(
             padding: const EdgeInsets.all(12),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              childAspectRatio: 0.75,
+              crossAxisCount: 3,
+              childAspectRatio: 0.8,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
             ),

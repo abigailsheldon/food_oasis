@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'cart_page.dart';
 import 'app_bottom_nav.dart';
+import 'cart_icon_badge.dart';
 
 import 'services/firestore_service.dart';
 
@@ -24,10 +25,16 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
   String searchQuery = '';
 
   Set<String> favoriteSellerIds = {};
+  
+  // Business status
+  bool acceptingOrders = true;
+  Map<String, dynamic>? businessHours;
+  bool isLoadingBusinessData = true;
 
   @override
     void initState() {
       super.initState();
+      _loadBusinessData();
 
       _firestoreService.getFavoriteSellersStream().listen((sellers) {
         setState(() {
@@ -37,6 +44,34 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
         });
       });
     }
+
+  Future<void> _loadBusinessData() async {
+    final businessId = widget.seller['businessId'] ?? '';
+    if (businessId.isEmpty) {
+      setState(() => isLoadingBusinessData = false);
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('businesses')
+          .doc(businessId)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        setState(() {
+          acceptingOrders = data['acceptingReservations'] ?? true;
+          businessHours = data['hours'] as Map<String, dynamic>?;
+          isLoadingBusinessData = false;
+        });
+      } else {
+        setState(() => isLoadingBusinessData = false);
+      }
+    } catch (e) {
+      setState(() => isLoadingBusinessData = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,13 +119,7 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.shopping_cart_outlined),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const CartPage()),
-                    ),
-                  ),
+                 const CartIconBadge(),
                 ],
               ),
 
@@ -176,6 +205,36 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                     // Seasonality
                     if (seasonality.isNotEmpty)
                       _buildInfoRow(Icons.calendar_today, 'Season: $seasonality'),
+
+                    // Business Hours Section
+                    _buildBusinessHoursSection(),
+
+                    // Not Accepting Orders Banner
+                    if (!acceptingOrders && !isLoadingBusinessData)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.orange.shade700),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'This business is not currently accepting orders. Please check back later or contact them directly.',
+                                style: TextStyle(
+                                  color: Colors.orange.shade900,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                     // Phone
                     if (phone.isNotEmpty)
@@ -759,18 +818,31 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
             ),
 
             IconButton(
-              icon: const Icon(Icons.add_shopping_cart),
-              color: Theme.of(context).primaryColor,
-              onPressed: () {
-                _firestoreService.addToCart(item);
+              icon: Icon(
+                Icons.add_shopping_cart,
+                color: acceptingOrders 
+                    ? Theme.of(context).primaryColor 
+                    : Colors.grey.shade400,
+              ),
+              onPressed: acceptingOrders 
+                  ? () {
+                      _firestoreService.addToCart(item);
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${item['name']} added to cart!'),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${item['name']} added to cart!'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  : () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('This business is not currently accepting orders'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    },
             ),
           ],
         ),
@@ -823,21 +895,31 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                     color: Theme.of(context).primaryColor,
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _firestoreService.addToCart(item);
+                acceptingOrders
+                    ? ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _firestoreService.addToCart(item);
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${item['name']} added to cart!'),
-                        duration: const Duration(seconds: 2),
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${item['name']} added to cart!'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.add_shopping_cart),
+                        label: const Text('Add to Cart'),
+                      )
+                    : ElevatedButton.icon(
+                        onPressed: null,
+                        icon: const Icon(Icons.block),
+                        label: const Text('Not Available'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade300,
+                          foregroundColor: Colors.grey.shade600,
+                        ),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.add_shopping_cart),
-                  label: const Text('Add to Cart'),
-                ),
               ],
             ),
           ],
@@ -915,6 +997,124 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
               );
             }).toList(),
           ),
+        ],
+      ),
+    );
+  }
+
+  // BUSINESS HOURS SECTION
+  Widget _buildBusinessHoursSection() {
+    if (businessHours == null || businessHours!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final now = DateTime.now();
+    final todayName = weekdays[now.weekday - 1];
+
+    // Check if business is currently open
+    bool isCurrentlyOpen = false;
+    String? todayHours;
+
+    if (businessHours!.containsKey(todayName)) {
+      final dayData = businessHours![todayName] as Map<String, dynamic>?;
+      if (dayData != null && dayData['open'] != null && dayData['close'] != null) {
+        final openStr = dayData['open'] as String;
+        final closeStr = dayData['close'] as String;
+        todayHours = '$openStr - $closeStr';
+
+        // Parse times to check if currently open
+        final openParts = openStr.split(':');
+        final closeParts = closeStr.split(':');
+        if (openParts.length == 2 && closeParts.length == 2) {
+          final openTime = TimeOfDay(
+            hour: int.tryParse(openParts[0]) ?? 0,
+            minute: int.tryParse(openParts[1]) ?? 0,
+          );
+          final closeTime = TimeOfDay(
+            hour: int.tryParse(closeParts[0]) ?? 0,
+            minute: int.tryParse(closeParts[1]) ?? 0,
+          );
+          final currentTime = TimeOfDay.now();
+
+          final currentMinutes = currentTime.hour * 60 + currentTime.minute;
+          final openMinutes = openTime.hour * 60 + openTime.minute;
+          final closeMinutes = closeTime.hour * 60 + closeTime.minute;
+
+          isCurrentlyOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+        }
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 18, color: Colors.grey.shade600),
+              const SizedBox(width: 6),
+              const Text('Business Hours', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isCurrentlyOpen ? Colors.green.shade100 : Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  isCurrentlyOpen ? 'Open Now' : 'Closed',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isCurrentlyOpen ? Colors.green.shade700 : Colors.red.shade700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...weekdays.map((day) {
+            final dayData = businessHours![day] as Map<String, dynamic>?;
+            final isToday = day == todayName;
+            
+            String hoursText;
+            if (dayData == null || dayData['open'] == null) {
+              hoursText = 'Closed';
+            } else {
+              hoursText = '${dayData['open']} - ${dayData['close']}';
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 90,
+                    child: Text(
+                      day,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                        color: isToday ? Colors.green.shade700 : Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    hoursText,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                      color: dayData == null || dayData['open'] == null 
+                          ? Colors.red.shade400 
+                          : (isToday ? Colors.green.shade700 : Colors.grey.shade600),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
         ],
       ),
     );

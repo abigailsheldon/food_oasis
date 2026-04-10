@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'item_detail_page.dart';
 import 'favorites_page.dart';
 import 'cart_page.dart';
 import 'product_icons.dart';
+import 'cart_icon_badge.dart';
 
 class ShopPage extends StatefulWidget {
   const ShopPage({super.key});
@@ -29,13 +31,7 @@ class _ShopPageState extends State<ShopPage> {
               MaterialPageRoute(builder: (context) => const FavoritesPage()),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const CartPage()),
-            ),
-          ),
+          const CartIconBadge(),
         ],
       ),
       body: Padding(
@@ -90,8 +86,8 @@ class _ShopPageState extends State<ShopPage> {
                   return GridView.builder(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      childAspectRatio: 0.7,
+                      crossAxisCount: 3,
+                      childAspectRatio: 0.8,
                       crossAxisSpacing: 10,
                       mainAxisSpacing: 10,
                     ),
