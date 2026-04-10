@@ -715,55 +715,197 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
           const SizedBox(height: 10),
 
           ...weekdayOrder.map((day) {
-            return Row(
-              children: [
-                Checkbox(
-                  value: daysOpen[day] ?? true,
-                  onChanged: (v) {
-                    setState(() {
-                      daysOpen[day] = v ?? false;
-                    });
-                  },
-                ),
-                SizedBox(width: 90, child: Text(day)),
-                if (daysOpen[day] ?? true) ...[
-                  TextButton(
-                    onPressed: () async {
-                      final picked = await showTimePicker(
-                        context: context,
-                        initialTime: businessHours[day]!["open"] ??
-                            const TimeOfDay(hour: 9, minute: 0),
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          businessHours[day]!["open"] = picked;
-                        });
-                      }
-                    },
-                    child: Text(
-                      businessHours[day]!["open"]?.format(context) ?? "Open",
-                    ),
-                  ),
-                  const Text(" - "),
-                  TextButton(
-                    onPressed: () async {
-                      final picked = await showTimePicker(
-                        context: context,
-                        initialTime: businessHours[day]!["close"] ??
-                            const TimeOfDay(hour: 18, minute: 0),
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          businessHours[day]!["close"] = picked;
-                        });
-                      }
-                    },
-                    child: Text(
-                      businessHours[day]!["close"]?.format(context) ?? "Close",
-                    ),
-                  ),
-                ],
-              ],
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Use compact layout for narrow screens
+                  final isCompact = constraints.maxWidth < 350;
+                  
+                  if (isCompact) {
+                    // Stacked layout for phones
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Checkbox(
+                                  value: daysOpen[day] ?? true,
+                                  onChanged: (v) {
+                                    setState(() {
+                                      daysOpen[day] = v ?? false;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  day,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    color: (daysOpen[day] ?? true) 
+                                        ? Colors.black 
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              ),
+                              if (!(daysOpen[day] ?? true))
+                                Text(
+                                  'Closed',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade500,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          if (daysOpen[day] ?? true)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 32, top: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () async {
+                                        final picked = await showTimePicker(
+                                          context: context,
+                                          initialTime: businessHours[day]!["open"] ??
+                                              const TimeOfDay(hour: 9, minute: 0),
+                                        );
+                                        if (picked != null) {
+                                          setState(() {
+                                            businessHours[day]!["open"] = picked;
+                                          });
+                                        }
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                      ),
+                                      child: Text(
+                                        businessHours[day]!["open"]?.format(context) ?? "Open",
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Text(
+                                      "to",
+                                      style: TextStyle(color: Colors.grey.shade600),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () async {
+                                        final picked = await showTimePicker(
+                                          context: context,
+                                          initialTime: businessHours[day]!["close"] ??
+                                              const TimeOfDay(hour: 18, minute: 0),
+                                        );
+                                        if (picked != null) {
+                                          setState(() {
+                                            businessHours[day]!["close"] = picked;
+                                          });
+                                        }
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                      ),
+                                      child: Text(
+                                        businessHours[day]!["close"]?.format(context) ?? "Close",
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    // Row layout for tablets/larger screens
+                    return Row(
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Checkbox(
+                            value: daysOpen[day] ?? true,
+                            onChanged: (v) {
+                              setState(() {
+                                daysOpen[day] = v ?? false;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(width: 90, child: Text(day)),
+                        if (daysOpen[day] ?? true) ...[
+                          Expanded(
+                            child: Row(
+                              children: [
+                                TextButton(
+                                  onPressed: () async {
+                                    final picked = await showTimePicker(
+                                      context: context,
+                                      initialTime: businessHours[day]!["open"] ??
+                                          const TimeOfDay(hour: 9, minute: 0),
+                                    );
+                                    if (picked != null) {
+                                      setState(() {
+                                        businessHours[day]!["open"] = picked;
+                                      });
+                                    }
+                                  },
+                                  child: Text(
+                                    businessHours[day]!["open"]?.format(context) ?? "Open",
+                                  ),
+                                ),
+                                const Text(" - "),
+                                TextButton(
+                                  onPressed: () async {
+                                    final picked = await showTimePicker(
+                                      context: context,
+                                      initialTime: businessHours[day]!["close"] ??
+                                          const TimeOfDay(hour: 18, minute: 0),
+                                    );
+                                    if (picked != null) {
+                                      setState(() {
+                                        businessHours[day]!["close"] = picked;
+                                      });
+                                    }
+                                  },
+                                  child: Text(
+                                    businessHours[day]!["close"]?.format(context) ?? "Close",
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else
+                          Expanded(
+                            child: Text(
+                              'Closed',
+                              style: TextStyle(color: Colors.grey.shade500),
+                            ),
+                          ),
+                      ],
+                    );
+                  }
+                },
+              ),
             );
           }),
 
@@ -845,91 +987,252 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   ),
                 )
               else
-                Column(
-                  children: products.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    data['productId'] = doc.id;
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Column(
+                      children: products.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        data['productId'] = doc.id;
 
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            ProductIcons.fromKey(data['iconKey']),
-                            size: 30,
-                            color: Colors.green,
-                          ),
-                        ),
-                        title: Text(data["name"] ?? ""),
-                        subtitle: Text(
-                          "\$${data["price"]} / ${data["unit"] ?? 'ea'} • Stock: ${data["quantity"]}",
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => EditItemPage(
-                                      productId: doc.id,
-                                      businessId: widget.businessId ?? '',
-                                      product: data,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text("Delete Product"),
-                                    content: Text(
-                                        "Are you sure you want to delete '${data['name']}'?"),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context, false),
-                                        child: const Text("Cancel"),
-                                      ),
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context, true),
-                                        child: const Text("Delete",
-                                            style: TextStyle(color: Colors.red)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-
-                                if (confirm == true) {
-                                  await FirebaseFirestore.instance
-                                      .collection('products')
-                                      .doc(doc.id)
-                                      .delete();
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
+                        return _buildResponsiveProductCard(
+                          context: context,
+                          data: data,
+                          docId: doc.id,
+                          maxWidth: constraints.maxWidth,
+                        );
+                      }).toList(),
                     );
-                  }).toList(),
+                  },
                 ),
             ],
           ),
         );
       },
     );
+  }
+
+  Widget _buildResponsiveProductCard({
+    required BuildContext context,
+    required Map<String, dynamic> data,
+    required String docId,
+    required double maxWidth,
+  }) {
+    // Compact layout for narrow screens (< 300px)
+    final isCompact = maxWidth < 300;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: isCompact
+            ? _buildCompactProductCard(context, data, docId)
+            : _buildWideProductCard(context, data, docId),
+      ),
+    );
+  }
+
+  Widget _buildCompactProductCard(
+    BuildContext context,
+    Map<String, dynamic> data,
+    String docId,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.green.shade100,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                ProductIcons.fromKey(data['iconKey']),
+                size: 24,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data["name"] ?? "",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    "\$${data["price"]} / ${data["unit"] ?? 'ea'}",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "Stock: ${data["quantity"]}",
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 32,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditItemPage(
+                            productId: docId,
+                            businessId: widget.businessId ?? '',
+                            product: data,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text("Edit", style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  height: 32,
+                  child: TextButton.icon(
+                    onPressed: () => _confirmDeleteProduct(context, data, docId),
+                    icon: const Icon(Icons.delete, size: 16),
+                    label: const Text("Delete", style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWideProductCard(
+    BuildContext context,
+    Map<String, dynamic> data,
+    String docId,
+  ) {
+    return Row(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.green.shade100,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            ProductIcons.fromKey(data['iconKey']),
+            size: 30,
+            color: Colors.green,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                data["name"] ?? "",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "\$${data["price"]} / ${data["unit"] ?? 'ea'} • Stock: ${data["quantity"]}",
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.edit, color: Colors.blue),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EditItemPage(
+                  productId: docId,
+                  businessId: widget.businessId ?? '',
+                  product: data,
+                ),
+              ),
+            );
+          },
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          padding: EdgeInsets.zero,
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete, color: Colors.red),
+          onPressed: () => _confirmDeleteProduct(context, data, docId),
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          padding: EdgeInsets.zero,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmDeleteProduct(
+    BuildContext context,
+    Map<String, dynamic> data,
+    String docId,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Product"),
+        content: Text("Are you sure you want to delete '${data['name']}'?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await FirebaseFirestore.instance.collection('products').doc(docId).delete();
+    }
   }
 
   // ORDERS SECTION (placeholder)
