@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'business_detail_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'services/firestore_service.dart';
 import 'cart_page.dart';
 import 'app_bottom_nav.dart';
 import 'product_icons.dart';
+import 'pickup_time_selector.dart';
 
 class ItemDetailPage extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -20,6 +22,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   String sellerName = '';
   bool isLoadingSeller = true;
+  bool acceptingOrders = true;
 
   @override
   void initState() {
@@ -34,6 +37,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       setState(() {
         sellerName = 'Unknown seller';
         isLoadingSeller = false;
+        acceptingOrders = false;
       });
       return;
     }
@@ -48,6 +52,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         setState(() {
           sellerName = 'Unknown seller';
           isLoadingSeller = false;
+          acceptingOrders = false;
         });
         return;
       }
@@ -56,12 +61,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
       setState(() {
         sellerName = data['name'] ?? 'Unnamed seller';
+        acceptingOrders = data['acceptingReservations'] ?? true;
         isLoadingSeller = false;
       });
     } catch (e) {
       setState(() {
         sellerName = 'Unknown seller';
         isLoadingSeller = false;
+        acceptingOrders = false;
       });
     }
   }
@@ -79,13 +86,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         title: Text(name),
         backgroundColor: Colors.green.shade50,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const CartPage()),
-            ),
-          ),
+          _buildCartIconWithBadge(),
         ],
       ),
       body: SingleChildScrollView(
@@ -184,32 +185,77 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
                   const SizedBox(height: 30),
 
+                  // NOT ACCEPTING ORDERS BANNER
+                  if (!acceptingOrders && !isLoadingSeller)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.orange.shade700),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'This seller is not currently accepting orders.',
+                              style: TextStyle(
+                                color: Colors.orange.shade900,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                   // ADD TO CART
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
-                        firestoreService.addToCart(widget.item);
+                      onPressed: (!acceptingOrders || isLoadingSeller)
+                          ? null
+                          : () async {
+                              // Show pickup time selector
+                              final pickupTime = await PickupTimeSelector.show(
+                                context: context,
+                                businessId: businessId,
+                              );
 
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('$name added to cart!'),
-                            backgroundColor: Colors.green,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      },
+                              if (pickupTime != null) {
+                                // Add to cart with pickup time
+                                await firestoreService.addToCartWithPickupTime(
+                                  widget.item,
+                                  pickupTime,
+                                );
+
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('$name added to cart!'),
+                                      backgroundColor: Colors.green,
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
+                        backgroundColor: acceptingOrders ? Colors.green : Colors.grey.shade400,
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        disabledForegroundColor: Colors.grey.shade600,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Add to Cart',
-                        style: TextStyle(
+                      child: Text(
+                        acceptingOrders ? 'Add to Cart' : 'Not Available',
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -282,6 +328,71 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCartIconWithBadge() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return IconButton(
+        icon: const Icon(Icons.shopping_cart_outlined),
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CartPage()),
+        ),
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('cart')
+          .snapshots(),
+      builder: (context, snapshot) {
+        int itemCount = 0;
+        if (snapshot.hasData) {
+          itemCount = snapshot.data!.docs.length;
+        }
+
+        return IconButton(
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.shopping_cart_outlined),
+              if (itemCount > 0)
+                Positioned(
+                  right: -6,
+                  top: -6,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      itemCount > 9 ? '9+' : '$itemCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CartPage()),
+          ),
+        );
+      },
     );
   }
 }

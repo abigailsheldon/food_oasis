@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'cart_page.dart';
 import 'app_bottom_nav.dart';
+import 'pickup_time_selector.dart';
 
 import 'services/firestore_service.dart';
 
@@ -761,15 +762,25 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
             IconButton(
               icon: const Icon(Icons.add_shopping_cart),
               color: Theme.of(context).primaryColor,
-              onPressed: () {
-                _firestoreService.addToCart(item);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${item['name']} added to cart!'),
-                    duration: const Duration(seconds: 2),
-                  ),
+              onPressed: () async {
+                // Show pickup time selector
+                final pickupTime = await PickupTimeSelector.show(
+                  context: context,
+                  businessId: sellerId,
                 );
+
+                if (pickupTime != null) {
+                  await _firestoreService.addToCartWithPickupTime(item, pickupTime);
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${item['name']} added to cart!'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                }
               },
             ),
           ],
@@ -824,16 +835,27 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                   ),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     Navigator.pop(context);
-                    _firestoreService.addToCart(item);
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${item['name']} added to cart!'),
-                        duration: const Duration(seconds: 2),
-                      ),
+                    
+                    // Show pickup time selector
+                    final pickupTime = await PickupTimeSelector.show(
+                      context: context,
+                      businessId: sellerId,
                     );
+
+                    if (pickupTime != null) {
+                      await _firestoreService.addToCartWithPickupTime(item, pickupTime);
+
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${item['name']} added to cart!'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    }
                   },
                   icon: const Icon(Icons.add_shopping_cart),
                   label: const Text('Add to Cart'),

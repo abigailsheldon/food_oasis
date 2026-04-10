@@ -165,7 +165,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
           );
         },
       ),
-      //bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
     );
   }
 }
