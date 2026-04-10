@@ -128,7 +128,7 @@ class _ShopPageState extends State<ShopPage> {
                                     ),
                                     child: Icon(
                                       ProductIcons.fromKey(item['iconKey']),
-                                      size: 75,
+                                      size: 40,
                                       color: Colors.green,
                                     ),
                                   ),
