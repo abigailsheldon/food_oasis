@@ -57,6 +57,49 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() => isLoading = false);
   }
 
+  // Cache for business names in purchase history
+  Map<String, String> _purchaseHistoryBusinessNames = {};
+
+  Future<String> _getBusinessNameForHistory(String businessId) async {
+    if (_purchaseHistoryBusinessNames.containsKey(businessId)) {
+      return _purchaseHistoryBusinessNames[businessId]!;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('businesses')
+          .doc(businessId)
+          .get();
+
+      if (doc.exists) {
+        final name = doc.data()?['name'] ?? 'Unknown Seller';
+        _purchaseHistoryBusinessNames[businessId] = name;
+        return name;
+      }
+    } catch (e) {
+      // Handle error
+    }
+
+    _purchaseHistoryBusinessNames[businessId] = 'Unknown Seller';
+    return 'Unknown Seller';
+  }
+
+  // Group items by businessId
+  Map<String, List<Map<String, dynamic>>> _groupItemsByVendor(List<dynamic> items) {
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    
+    for (final item in items) {
+      final itemData = item as Map<String, dynamic>;
+      final businessId = itemData['businessId'] ?? 'unknown';
+      if (!grouped.containsKey(businessId)) {
+        grouped[businessId] = [];
+      }
+      grouped[businessId]!.add(itemData);
+    }
+    
+    return grouped;
+  }
+
   Widget _buildPurchaseHistory() {
     final user = _authService.currentUser;
     if (user == null) {
@@ -115,6 +158,10 @@ class _DashboardPageState extends State<DashboardPage> {
             final createdAt = data['createdAt'] as Timestamp?;
             final date = createdAt?.toDate();
 
+            // Group items by vendor
+            final groupedItems = _groupItemsByVendor(items);
+            final vendorCount = groupedItems.keys.length;
+
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -137,11 +184,22 @@ class _DashboardPageState extends State<DashboardPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 4),
-                    Text(
-                      date != null
-                          ? '${date.month}/${date.day}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}'
-                          : 'Date unknown',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    Row(
+                      children: [
+                        Text(
+                          date != null
+                              ? '${date.month}/${date.day}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}'
+                              : 'Date unknown',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                        if (vendorCount > 1) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '• $vendorCount sellers',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Container(
@@ -164,58 +222,148 @@ class _DashboardPageState extends State<DashboardPage> {
                 children: [
                   const Divider(),
                   const SizedBox(height: 8),
-                  ...items.map((item) {
-                    final itemData = item as Map<String, dynamic>;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  
+                  // Grouped by vendor
+                  ...groupedItems.entries.map((entry) {
+                    final businessId = entry.key;
+                    final vendorItems = entry.value;
+                    final vendorSubtotal = vendorItems.fold<double>(
+                      0,
+                      (sum, item) => sum + ((item['price'] ?? 0) * (item['quantity'] ?? 1)),
+                    );
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.fastfood, size: 20, color: Colors.grey),
+                          // Vendor header
+                          FutureBuilder<String>(
+                            future: _getBusinessNameForHistory(businessId),
+                            builder: (context, snapshot) {
+                              final businessName = snapshot.data ?? 'Loading...';
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade50,
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        itemData['name'] ?? 'Unknown item',
-                                        style: const TextStyle(fontWeight: FontWeight.w500),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.storefront, size: 16, color: Colors.green.shade700),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        businessName,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: Colors.green.shade800,
+                                        ),
                                       ),
-                                      Text(
-                                        'Qty: ${itemData['quantity']} × \$${(itemData['price'] ?? 0).toStringAsFixed(2)}',
-                                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                    ),
+                                    Text(
+                                      '\$${vendorSubtotal.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: Colors.green.shade700,
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
-                          Text(
-                            '\$${((itemData['price'] ?? 0) * (itemData['quantity'] ?? 1)).toStringAsFixed(2)}',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700),
-                          ),
+
+                          // Vendor items
+                          ...vendorItems.map((itemData) {
+                            // Format pickup time if available
+                            String? pickupTimeStr;
+                            final pickupTime = itemData['pickupTime'];
+                            if (pickupTime != null) {
+                              DateTime dt;
+                              if (pickupTime is Timestamp) {
+                                dt = pickupTime.toDate();
+                              } else {
+                                dt = pickupTime as DateTime;
+                              }
+                              final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+                              final minute = dt.minute.toString().padLeft(2, '0');
+                              final period = dt.hour >= 12 ? 'PM' : 'AM';
+                              pickupTimeStr = '${dt.month}/${dt.day} at $hour:$minute $period';
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Icon(Icons.fastfood, size: 18, color: Colors.grey),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          itemData['name'] ?? 'Unknown item',
+                                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                                        ),
+                                        Text(
+                                          'Qty: ${itemData['quantity']} × \$${(itemData['price'] ?? 0).toStringAsFixed(2)}',
+                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                        ),
+                                        if (pickupTimeStr != null)
+                                          Row(
+                                            children: [
+                                              Icon(Icons.schedule, size: 12, color: Colors.blue.shade600),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Pickup: $pickupTimeStr',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.blue.shade700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    '\$${((itemData['price'] ?? 0) * (itemData['quantity'] ?? 1)).toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
                         ],
                       ),
                     );
                   }).toList(),
-                  const SizedBox(height: 8),
+
                   const Divider(),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Order Total', style: TextStyle(fontWeight: FontWeight.bold)),
                       Text(
                         '\$${total.toStringAsFixed(2)}',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green.shade700),

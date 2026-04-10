@@ -65,14 +65,25 @@ class FirestoreService {
         .collection('users')
         .doc(user.uid)
         .collection('cart')
-        .orderBy('addedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final items = snapshot.docs.map((doc) {
         final data = doc.data();
         data['cartItemId'] = doc.id;
         return data;
       }).toList();
+      
+      // Sort locally by addedAt (handles null values)
+      items.sort((a, b) {
+        final aTime = a['addedAt'] as Timestamp?;
+        final bTime = b['addedAt'] as Timestamp?;
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime); // descending
+      });
+      
+      return items;
     });
   }
 

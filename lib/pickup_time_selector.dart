@@ -44,6 +44,7 @@ class _PickupTimeSelectorState extends State<PickupTimeSelector> {
   Map<String, dynamic>? businessHours;
   String? businessName;
   bool isLoading = true;
+  bool hasHours = false; // Track if business has hours set
   
   // Selected date (today or tomorrow, etc.)
   DateTime selectedDate = DateTime.now();
@@ -55,15 +56,11 @@ class _PickupTimeSelectorState extends State<PickupTimeSelector> {
   // Time slots for selected date
   List<TimeOfDay> availableTimeSlots = [];
 
-  static const List<String> weekdayOrder = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
-  ];
-
   @override
   void initState() {
     super.initState();
-    _loadBusinessHours();
     _generateAvailableDates();
+    _loadBusinessHours();
   }
 
   void _generateAvailableDates() {
@@ -84,17 +81,32 @@ class _PickupTimeSelectorState extends State<PickupTimeSelector> {
 
       if (doc.exists) {
         final data = doc.data() as Map<String, dynamic>;
+        final hours = data['hours'] as Map<String, dynamic>?;
+        
         setState(() {
-          businessHours = data['hours'] as Map<String, dynamic>?;
+          businessHours = hours;
           businessName = data['name'] ?? 'Business';
+          hasHours = hours != null && hours.isNotEmpty;
+          isLoading = false;
+        });
+        
+        _generateTimeSlotsForDate(selectedDate);
+      } else {
+        // Business doesn't exist - use defaults
+        setState(() {
+          hasHours = false;
+          businessName = 'Business';
           isLoading = false;
         });
         _generateTimeSlotsForDate(selectedDate);
-      } else {
-        setState(() => isLoading = false);
       }
     } catch (e) {
-      setState(() => isLoading = false);
+      debugPrint('Error loading business hours: $e');
+      setState(() {
+        hasHours = false;
+        isLoading = false;
+      });
+      _generateTimeSlotsForDate(selectedDate);
     }
   }
 
@@ -104,25 +116,25 @@ class _PickupTimeSelectorState extends State<PickupTimeSelector> {
   }
 
   void _generateTimeSlotsForDate(DateTime date) {
-    if (businessHours == null) {
-      setState(() => availableTimeSlots = []);
-      return;
-    }
+    TimeOfDay openTime;
+    TimeOfDay closeTime;
+    
+    if (hasHours && businessHours != null) {
+      // Use business hours
+      final dayName = _getDayName(date);
+      final dayHours = businessHours![dayName] as Map<String, dynamic>?;
 
-    final dayName = _getDayName(date);
-    final dayHours = businessHours![dayName] as Map<String, dynamic>?;
+      if (dayHours == null || dayHours['isOpen'] == false) {
+        setState(() => availableTimeSlots = []);
+        return;
+      }
 
-    if (dayHours == null || dayHours['isOpen'] == false) {
-      setState(() => availableTimeSlots = []);
-      return;
-    }
-
-    final openTime = _parseTime(dayHours['open']);
-    final closeTime = _parseTime(dayHours['close']);
-
-    if (openTime == null || closeTime == null) {
-      setState(() => availableTimeSlots = []);
-      return;
+      openTime = _parseTime(dayHours['open']) ?? const TimeOfDay(hour: 8, minute: 0);
+      closeTime = _parseTime(dayHours['close']) ?? const TimeOfDay(hour: 18, minute: 0);
+    } else {
+      // DEFAULT: 8 AM - 6 PM for all days if no hours set
+      openTime = const TimeOfDay(hour: 8, minute: 0);
+      closeTime = const TimeOfDay(hour: 18, minute: 0);
     }
 
     final slots = <TimeOfDay>[];
@@ -135,7 +147,7 @@ class _PickupTimeSelectorState extends State<PickupTimeSelector> {
     int currentMinutes = openTime.hour * 60 + openTime.minute;
     final endMinutes = closeTime.hour * 60 + closeTime.minute;
 
-    while (currentMinutes < endMinutes - 15) { // Stop 15 min before close
+    while (currentMinutes < endMinutes - 15) {
       final slotTime = TimeOfDay(
         hour: currentMinutes ~/ 60,
         minute: currentMinutes % 60,
@@ -154,12 +166,12 @@ class _PickupTimeSelectorState extends State<PickupTimeSelector> {
         slots.add(slotTime);
       }
       
-      currentMinutes += 30; // 30-minute intervals
+      currentMinutes += 30;
     }
 
     setState(() {
       availableTimeSlots = slots;
-      selectedTime = null; // Reset selection when date changes
+      selectedTime = null;
     });
   }
 
@@ -196,7 +208,9 @@ class _PickupTimeSelectorState extends State<PickupTimeSelector> {
   }
 
   bool _isDateOpen(DateTime date) {
-    if (businessHours == null) return false;
+    // If no hours set, assume all days are open
+    if (!hasHours || businessHours == null) return true;
+    
     final dayName = _getDayName(date);
     final dayHours = businessHours![dayName] as Map<String, dynamic>?;
     return dayHours != null && dayHours['isOpen'] == true;
@@ -274,13 +288,31 @@ class _PickupTimeSelectorState extends State<PickupTimeSelector> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Select Date',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'Select Date',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      if (!hasHours) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Flexible hours',
+                            style: TextStyle(fontSize: 10, color: Colors.blue.shade700),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
