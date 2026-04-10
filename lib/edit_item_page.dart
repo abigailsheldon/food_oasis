@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/firestore_service.dart';
+import 'product_icons.dart';
 
 class EditItemPage extends StatefulWidget {
   final String? productId;
@@ -26,6 +27,8 @@ class _EditItemPageState extends State<EditItemPage> {
   late TextEditingController categoryController;
 
   final FirestoreService _firestoreService = FirestoreService();
+
+  String selectedIconKey = 'default';
 
   bool get isEdit => widget.productId != null;
 
@@ -56,6 +59,8 @@ class _EditItemPageState extends State<EditItemPage> {
     categoryController = TextEditingController(
       text: widget.product["category"] ?? "",
     );
+
+    selectedIconKey = widget.product['iconKey'] ?? 'default';
   }
 
   @override
@@ -138,6 +143,33 @@ class _EditItemPageState extends State<EditItemPage> {
               ),
             ),
 
+            const SizedBox(height: 15),
+
+            DropdownButtonFormField<String>(
+              value: selectedIconKey,
+              decoration: const InputDecoration(
+                labelText: "Product Icon",
+                border: OutlineInputBorder(),
+              ),
+              items: ProductIcons.options.keys.map((key) {
+                return DropdownMenuItem(
+                  value: key,
+                  child: Row(
+                    children: [
+                      Icon(ProductIcons.options[key], size: 18),
+                      const SizedBox(width: 10),
+                      Text(key),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  selectedIconKey = value ?? 'default';
+                });
+              },
+            ),
+
             const SizedBox(height: 30),
 
             ElevatedButton(
@@ -159,6 +191,7 @@ class _EditItemPageState extends State<EditItemPage> {
                       quantity: quantity,
                       unit: unit,
                       category: category,
+                      iconKey: selectedIconKey,
                     );
                   } else {
                     await _firestoreService.addProduct(
@@ -169,6 +202,7 @@ class _EditItemPageState extends State<EditItemPage> {
                       quantity: quantity,
                       unit: unit,
                       category: category,
+                      iconKey: selectedIconKey,
                     );
                   }
 

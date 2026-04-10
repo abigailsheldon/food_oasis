@@ -7,6 +7,7 @@ import 'services/firestore_service.dart';
 import 'auth/seller_signup_page.dart';
 import 'seller_reviews_page.dart';
 import 'app_bottom_nav.dart';
+import 'product_icons.dart';
 
 
 class DashboardPage extends StatefulWidget {
@@ -242,26 +243,74 @@ class _DashboardPageState extends State<DashboardPage> {
     if (role == "buyer") {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('My Account'),
+          title: const Text('Buyer Dashboard'),
           backgroundColor: Colors.green.shade50,
           actions: [
+
             IconButton(
               icon: const Icon(Icons.logout, color: Colors.red),
               onPressed: () async {
                 await _authService.signOut();
               },
-              tooltip: 'Logout',
             ),
           ],
         ),
+
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Become a Seller Card
+
+              // ================= HEADER CARD =================
               Card(
+                elevation: 0,
                 color: Colors.green.shade50,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Colors.green.shade200,
+                        child: const Icon(Icons.person, color: Colors.white),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              "My Account",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              "Manage orders, payments, and preferences",
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.settings),
+                        onPressed: () => _showBuyerSettings(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ================= SELLER ENTRY CARD =================
+              Card(
                 child: ListTile(
                   leading: Icon(Icons.storefront, color: Colors.green.shade700),
                   title: const Text('Become a Seller'),
@@ -277,10 +326,9 @@ class _DashboardPageState extends State<DashboardPage> {
                   },
                 ),
               ),
-
               const SizedBox(height: 24),
 
-              // Purchase History Section
+              // ================= PURCHASE HISTORY =================
               const Text(
                 'Purchase History',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -298,6 +346,88 @@ class _DashboardPageState extends State<DashboardPage> {
       businessId: businessId,
       firestoreService: _firestoreService,
       authService: _authService,
+    );
+  }
+  void _showBuyerSettings(BuildContext context) {
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get()
+        .then((doc) {
+      if (doc.exists) {
+        nameController.text = doc.data()?['name'] ?? '';
+        phoneController.text = doc.data()?['phone'] ?? '';
+      }
+    });
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Account Settings'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: TextEditingController(text: user.email),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                ),
+                readOnly: true,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Display Name',
+                  prefixIcon: Icon(Icons.person),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  prefixIcon: Icon(Icons.phone),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .update({
+                'name': nameController.text.trim(),
+                'phone': phoneController.text.trim(),
+              });
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Settings updated')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -730,7 +860,11 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                             color: Colors.green.shade100,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.fastfood, color: Colors.green),
+                          child: Icon(
+                            ProductIcons.fromKey(data['iconKey']),
+                            size: 30,
+                            color: Colors.green,
+                          ),
                         ),
                         title: Text(data["name"] ?? ""),
                         subtitle: Text(
@@ -832,15 +966,6 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
-
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text("Account Settings"),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _showAccountSettingsDialog(context),
-            ),
-          ),
 
           Card(
             child: ListTile(

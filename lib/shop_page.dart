@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'item_detail_page.dart';
 import 'favorites_page.dart';
 import 'cart_page.dart';
+import 'product_icons.dart';
 
 class ShopPage extends StatefulWidget {
   const ShopPage({super.key});
@@ -125,8 +126,8 @@ class _ShopPageState extends State<ShopPage> {
                                       color: Colors.green.shade100,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Icon(
-                                      Icons.fastfood,
+                                    child: Icon(
+                                      ProductIcons.fromKey(item['iconKey']),
                                       size: 40,
                                       color: Colors.green,
                                     ),

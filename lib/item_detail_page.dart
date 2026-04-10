@@ -4,21 +4,75 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'services/firestore_service.dart';
 import 'cart_page.dart';
 import 'app_bottom_nav.dart';
+import 'product_icons.dart';
 
-
-class ItemDetailPage extends StatelessWidget {
+class ItemDetailPage extends StatefulWidget {
   final Map<String, dynamic> item;
 
   const ItemDetailPage({super.key, required this.item});
 
   @override
+  State<ItemDetailPage> createState() => _ItemDetailPageState();
+}
+
+class _ItemDetailPageState extends State<ItemDetailPage> {
+  final FirestoreService firestoreService = FirestoreService();
+
+  String sellerName = '';
+  bool isLoadingSeller = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSeller();
+  }
+
+  Future<void> _loadSeller() async {
+    final businessId = widget.item['businessId'] ?? '';
+
+    if (businessId.isEmpty) {
+      setState(() {
+        sellerName = 'Unknown seller';
+        isLoadingSeller = false;
+      });
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('businesses')
+          .doc(businessId)
+          .get();
+
+      if (!doc.exists) {
+        setState(() {
+          sellerName = 'Unknown seller';
+          isLoadingSeller = false;
+        });
+        return;
+      }
+
+      final data = doc.data() as Map<String, dynamic>;
+
+      setState(() {
+        sellerName = data['name'] ?? 'Unnamed seller';
+        isLoadingSeller = false;
+      });
+    } catch (e) {
+      setState(() {
+        sellerName = 'Unknown seller';
+        isLoadingSeller = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final FirestoreService firestoreService = FirestoreService();
-    final String name = item['name'] ?? '';
-    final String description = item['description'] ?? '';
-    final String businessId = item['businessId'] ?? '';
-    final double price = (item['price'] ?? 0).toDouble();
-    final String category = item['category'] ?? '';
+    final String name = widget.item['name'] ?? '';
+    final String description = widget.item['description'] ?? '';
+    final String businessId = widget.item['businessId'] ?? '';
+    final double price = (widget.item['price'] ?? 0).toDouble();
+    final String category = widget.item['category'] ?? '';
 
     return Scaffold(
       appBar: AppBar(
@@ -38,15 +92,15 @@ class ItemDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // HEADER IMAGE
             Container(
               width: double.infinity,
               height: 200,
               color: Colors.green.shade100,
               child: Icon(
-                Icons.fastfood,
-                size: 100,
-                color: Colors.green.shade700,
+                ProductIcons.fromKey(widget.item['iconKey']),
+                size: 75,
+                color: Colors.green,
               ),
             ),
 
@@ -55,7 +109,7 @@ class ItemDetailPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name
+                  // NAME
                   Text(
                     name,
                     style: const TextStyle(
@@ -66,27 +120,38 @@ class ItemDetailPage extends StatelessWidget {
 
                   const SizedBox(height: 8),
 
-                  // Category (replaces seller)
+                  // SELLER NAME (FIXED)
                   Row(
                     children: [
-                      Icon(Icons.storefront,
+                      const Icon(Icons.storefront,
                           size: 18, color: Colors.grey),
                       const SizedBox(width: 6),
-                      Text(
-                        category.isNotEmpty ? category : 'Uncategorized',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
+
+                      isLoadingSeller
+                          ? const Text(
+                              'Loading seller...',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            )
+                          : Text(
+                              sellerName.isNotEmpty
+                                  ? sellerName
+                                  : 'Unknown seller',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
                     ],
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Price
+                  // PRICE
                   Text(
-                    '\$${price.toStringAsFixed(2)} / ${item['unit'] ?? ''}',
+                    '\$${price.toStringAsFixed(2)} / ${widget.item['unit'] ?? ''}',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -96,7 +161,7 @@ class ItemDetailPage extends StatelessWidget {
 
                   const SizedBox(height: 20),
 
-                  // Description
+                  // DESCRIPTION
                   const Text(
                     'Description',
                     style: TextStyle(
@@ -119,12 +184,13 @@ class ItemDetailPage extends StatelessWidget {
 
                   const SizedBox(height: 30),
 
+                  // ADD TO CART
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
                       onPressed: () {
-                        firestoreService.addToCart(item);
+                        firestoreService.addToCart(widget.item);
 
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -153,7 +219,7 @@ class ItemDetailPage extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // View Seller (now uses businessId)
+                  // VIEW SELLER
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -183,7 +249,7 @@ class ItemDetailPage extends StatelessWidget {
                         }
 
                         final sellerData = doc.data()!;
-                        sellerData['businessId'] = doc.id;  // Add the document ID
+                        sellerData['businessId'] = doc.id;
 
                         Navigator.push(
                           context,
