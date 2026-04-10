@@ -612,6 +612,28 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                  category.contains(searchQuery.toLowerCase());
         }).toList();
 
+        // GROUP BY CATEGORY
+        Map<String, List<Map<String, dynamic>>> categorizedItems = {};
+
+        for (var doc in filteredDocs) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['productId'] = doc.id;
+
+          final rawCategory = (data['category'] ?? '').toString().trim();
+
+          final category = rawCategory.isEmpty
+              ? 'Other'
+              : rawCategory[0].toUpperCase() + rawCategory.substring(1).toLowerCase();
+
+          if (!categorizedItems.containsKey(category)) {
+            categorizedItems[category] = [];
+          }
+
+          categorizedItems[category]!.add(data);
+        }
+
+        final sortedKeys = categorizedItems.keys.toList()..sort();
+
         if (docs.isEmpty) {
           final source = widget.seller['source'] ?? '';
 
@@ -655,11 +677,31 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
         }
 
         return Column(
-          children: filteredDocs.map((doc) {
-            final item = doc.data() as Map<String, dynamic>;
-            item['productId'] = doc.id;
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: sortedKeys.map((category) {
+            final items = categorizedItems[category]!;
 
-            return _buildItemCard(item);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // CATEGORY HEADER
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text(
+                    category,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                // ITEMS UNDER CATEGORY
+                ...items.map((item) => _buildItemCard(item)).toList(),
+
+                const SizedBox(height: 12),
+              ],
+            );
           }).toList(),
         );
       },
