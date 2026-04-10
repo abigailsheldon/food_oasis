@@ -171,10 +171,11 @@ class FirestoreService {
       return const Stream.empty();
     }
 
+    // Removed orderBy to avoid requiring composite index
+    // Products will be sorted locally if needed
     return _firestore
         .collection('products')
         .where('businessId', isEqualTo: businessId)
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 
