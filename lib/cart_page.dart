@@ -654,6 +654,24 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildCartItemCard(Map<String, dynamic> item, {required bool isAvailable}) {
+    // Format pickup time if available
+    String? pickupTimeStr;
+    final pickupTime = item['pickupTime'];
+    if (pickupTime != null) {
+      DateTime dt;
+      if (pickupTime is Timestamp) {
+        dt = pickupTime.toDate();
+      } else {
+        dt = pickupTime as DateTime;
+      }
+      final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+      final minute = dt.minute.toString().padLeft(2, '0');
+      final period = dt.hour >= 12 ? 'PM' : 'AM';
+      final month = dt.month;
+      final day = dt.day;
+      pickupTimeStr = '$month/$day at $hour:$minute $period';
+    }
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -700,6 +718,28 @@ class _CartPageState extends State<CartPage> {
                     color: Colors.grey.shade600,
                   ),
                 ),
+                // Pickup time
+                if (pickupTimeStr != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.schedule,
+                        size: 14,
+                        color: Colors.blue.shade600,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Pickup: $pickupTimeStr',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

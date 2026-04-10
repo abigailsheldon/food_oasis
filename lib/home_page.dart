@@ -7,6 +7,7 @@ import 'item_detail_page.dart';
 import 'business_detail_page.dart';
 import 'app_bottom_nav.dart';
 import 'cart_icon_badge.dart';
+import 'services/firestore_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,6 +16,8 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 class _HomePageState extends State<HomePage> {
+  
+  final FirestoreService _firestoreService = FirestoreService();
 
   final List<Map<String, String>> categories = const [
     {"name": "Vegan", "icon": "🥗"},
@@ -35,6 +38,10 @@ class _HomePageState extends State<HomePage> {
     "Drinks": ["drinks", "drink", "beverage", "beverages", "juice", "juices", "smoothie", "smoothies"],
   };
 
+  List<Map<String, dynamic>> nearbySellers = [];
+  double? userLat;
+  double? userLng;
+
   // Helper to get all aliases for a category (lowercase)
   List<String> _getAliasesForCategory(String categoryName) {
     final aliases = categoryAliases[categoryName] ?? [];
@@ -48,6 +55,29 @@ class _HomePageState extends State<HomePage> {
     void initState() {
       super.initState();
       _loadFeaturedSellers();
+      _loadUserLocation();
+    }
+
+    Future<void> _loadUserLocation() async {
+      // For Atlanta dummy data:
+      userLat = 33.7490;  // Atlanta lat
+      userLng = -84.3880; // Atlanta lng
+      
+      // Or save to Firestore for persistence
+      await _firestoreService.updateUserLocation(
+        latitude: 33.7490,
+        longitude: -84.3880,
+        city: 'Atlanta',
+      );
+      
+      // Load nearby sellers
+      final nearby = await _firestoreService.getNearbyBusinesses(
+        userLat: userLat!,
+        userLng: userLng!,
+        limit: 6,
+      );
+      
+      setState(() => nearbySellers = nearby);
     }
 
     Future<void> _loadFeaturedSellers() async {
@@ -311,8 +341,8 @@ class CategoryProductsPage extends StatelessWidget {
           return GridView.builder(
             padding: const EdgeInsets.all(12),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.8,
+              crossAxisCount: 4,
+              childAspectRatio: 0.75,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
             ),

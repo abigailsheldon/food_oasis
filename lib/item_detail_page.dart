@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'business_detail_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'services/firestore_service.dart';
 import 'cart_page.dart';
 import 'app_bottom_nav.dart';
 import 'product_icons.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'pickup_time_selector.dart';
 
 class ItemDetailPage extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -218,16 +219,30 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                     child: ElevatedButton(
                       onPressed: (!acceptingOrders || isLoadingSeller)
                           ? null
-                          : () {
-                              firestoreService.addToCart(widget.item);
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('$name added to cart!'),
-                                  backgroundColor: Colors.green,
-                                  duration: const Duration(seconds: 2),
-                                ),
+                          : () async {
+                              // Show pickup time selector
+                              final pickupTime = await PickupTimeSelector.show(
+                                context: context,
+                                businessId: businessId,
                               );
+
+                              if (pickupTime != null) {
+                                // Add to cart with pickup time
+                                await firestoreService.addToCartWithPickupTime(
+                                  widget.item,
+                                  pickupTime,
+                                );
+
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('$name added to cart!'),
+                                      backgroundColor: Colors.green,
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              }
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: acceptingOrders ? Colors.green : Colors.grey.shade400,
