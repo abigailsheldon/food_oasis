@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'services/firestore_service.dart';
 import 'cart_page.dart';
 import 'app_bottom_nav.dart';
+import 'product_icons.dart';
 
 class ItemDetailPage extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -97,9 +98,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               height: 200,
               color: Colors.green.shade100,
               child: Icon(
-                Icons.fastfood,
-                size: 100,
-                color: Colors.green.shade700,
+                ProductIcons.fromKey(widget.item['iconKey']),
+                size: 75,
+                color: Colors.green,
               ),
             ),
 

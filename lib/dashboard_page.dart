@@ -7,6 +7,7 @@ import 'services/firestore_service.dart';
 import 'auth/seller_signup_page.dart';
 import 'seller_reviews_page.dart';
 import 'app_bottom_nav.dart';
+import 'product_icons.dart';
 
 
 class DashboardPage extends StatefulWidget {
@@ -730,7 +731,11 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                             color: Colors.green.shade100,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.fastfood, color: Colors.green),
+                          child: Icon(
+                            ProductIcons.fromKey(data['iconKey']),
+                            size: 30,
+                            color: Colors.green,
+                          ),
                         ),
                         title: Text(data["name"] ?? ""),
                         subtitle: Text(

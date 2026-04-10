@@ -17,6 +17,7 @@ class FirestoreService {
     required String unit,
     required String category,
     required String businessId,
+    required String iconKey,
   }) async {
     if (uid == null) {
       throw Exception("User not authenticated");
@@ -29,6 +30,7 @@ class FirestoreService {
       'quantity': quantity,
       'unit': unit,
       'category': category,
+      'iconKey': iconKey,
 
       'businessId': businessId,
       'ownerUid': uid,
@@ -58,6 +60,7 @@ class FirestoreService {
     required int quantity,
     required String unit,
     required String category,
+    required String iconKey,
   }) async {
     if (uid == null) {
       throw Exception("User not authenticated");
@@ -70,6 +73,7 @@ class FirestoreService {
       'quantity': quantity,
       'unit': unit,
       'category': category,
+      'iconKey': iconKey,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
