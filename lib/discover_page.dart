@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'business_detail_page.dart';
 import 'favorites_page.dart';
 import 'cart_page.dart';
-import 'app_bottom_nav.dart';
+import 'cart_icon_badge.dart';
 
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
@@ -30,7 +30,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
               MaterialPageRoute(builder: (context) => const FavoritesPage())),
           ),
           IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined),
+            icon: const CartIconBadge(),
             onPressed: () => Navigator.push(context,
               MaterialPageRoute(builder: (context) => const CartPage())),
           ),

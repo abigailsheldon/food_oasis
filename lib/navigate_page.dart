@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'business_detail_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'cart_page.dart';
+import 'cart_icon_badge.dart';
 import 'favorites_page.dart';
 import 'app_bottom_nav.dart';
 
@@ -169,7 +170,7 @@ class _NavigatePageState extends State<NavigatePage> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined),
+            icon: const CartIconBadge(),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const CartPage()),

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'cart_page.dart';
+import 'cart_icon_badge.dart';
 import 'app_bottom_nav.dart';
 import 'pickup_time_selector.dart';
 
@@ -86,7 +87,7 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.shopping_cart_outlined),
+                    icon: const CartIconBadge(),
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const CartPage()),
@@ -204,6 +205,9 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                       const SizedBox(height: 16),
                     ],
 
+                    // Business Hours
+                    _buildBusinessHoursSection(),
+
                     // Certifications
                     if (certifications.isNotEmpty)
                       _buildTagSection('Certifications', Icons.verified, certifications, Colors.blue),
@@ -270,6 +274,135 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
         ),
       ),
       bottomNavigationBar: const AppBottomNavBar(currentIndex: -1),
+    );
+  }
+
+  // BUSINESS HOURS SECTION (display only, doesn't affect cart)
+  Widget _buildBusinessHoursSection() {
+    final hours = widget.seller['hours'] as Map<String, dynamic>?;
+    
+    if (hours == null || hours.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    const weekdayOrder = [
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+    ];
+
+    // Check if business is currently open
+    final now = DateTime.now();
+    final todayName = weekdayOrder[now.weekday - 1];
+    final todayHours = hours[todayName] as Map<String, dynamic>?;
+    final isOpenToday = todayHours != null && todayHours['isOpen'] == true;
+    
+    bool isCurrentlyOpen = false;
+    if (isOpenToday) {
+      final openStr = todayHours['open'] as String?;
+      final closeStr = todayHours['close'] as String?;
+      if (openStr != null && closeStr != null) {
+        final openParts = openStr.split(':');
+        final closeParts = closeStr.split(':');
+        if (openParts.length == 2 && closeParts.length == 2) {
+          final openMinutes = int.parse(openParts[0]) * 60 + int.parse(openParts[1]);
+          final closeMinutes = int.parse(closeParts[0]) * 60 + int.parse(closeParts[1]);
+          final nowMinutes = now.hour * 60 + now.minute;
+          isCurrentlyOpen = nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+        }
+      }
+    }
+
+    String formatTime(String? time) {
+      if (time == null || time.isEmpty) return '';
+      final parts = time.split(':');
+      if (parts.length != 2) return time;
+      final hour = int.tryParse(parts[0]) ?? 0;
+      final minute = parts[1];
+      final period = hour >= 12 ? 'PM' : 'AM';
+      final hour12 = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+      return '$hour12:$minute $period';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.schedule, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'Business Hours',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isCurrentlyOpen ? Colors.green.shade100 : Colors.red.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                isCurrentlyOpen ? 'Open Now' : 'Closed',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isCurrentlyOpen ? Colors.green.shade800 : Colors.red.shade800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        
+        // Hours list
+        ...weekdayOrder.map((day) {
+          final dayHours = hours[day] as Map<String, dynamic>?;
+          final isOpen = dayHours != null && dayHours['isOpen'] == true;
+          final isToday = day == todayName;
+          
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            decoration: BoxDecoration(
+              color: isToday ? Colors.green.shade50 : null,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 90,
+                  child: Text(
+                    day,
+                    style: TextStyle(
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                      color: isToday ? Colors.green.shade800 : Colors.black87,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    isOpen
+                        ? '${formatTime(dayHours['open'])} - ${formatTime(dayHours['close'])}'
+                        : 'Closed',
+                    style: TextStyle(
+                      color: isOpen 
+                          ? (isToday ? Colors.green.shade800 : Colors.grey.shade700)
+                          : Colors.red.shade400,
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+                if (isToday)
+                  Icon(
+                    Icons.today,
+                    size: 16,
+                    color: Colors.green.shade600,
+                  ),
+              ],
+            ),
+          );
+        }).toList(),
+        
+        const SizedBox(height: 16),
+      ],
     );
   }
 
