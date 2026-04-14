@@ -5,6 +5,7 @@ import 'services/firestore_service.dart';
 import 'checkout_page.dart';
 import 'app_bottom_nav.dart';
 import 'business_detail_page.dart';
+import 'pickup_time_selector.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -654,154 +655,269 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildCartItemCard(Map<String, dynamic> item, {required bool isAvailable}) {
-    // Format pickup time if available
+    // Parse pickup time and check if expired
     String? pickupTimeStr;
+    bool isExpired = false;
+    DateTime? pickupDateTime;
+    
     final pickupTime = item['pickupTime'];
     if (pickupTime != null) {
-      DateTime dt;
       if (pickupTime is Timestamp) {
-        dt = pickupTime.toDate();
+        pickupDateTime = pickupTime.toDate();
       } else {
-        dt = pickupTime as DateTime;
+        pickupDateTime = pickupTime as DateTime;
       }
-      final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-      final minute = dt.minute.toString().padLeft(2, '0');
-      final period = dt.hour >= 12 ? 'PM' : 'AM';
-      final month = dt.month;
-      final day = dt.day;
+      
+      // Check if pickup time has passed
+      isExpired = pickupDateTime.isBefore(DateTime.now());
+      
+      final hour = pickupDateTime.hour > 12 ? pickupDateTime.hour - 12 : (pickupDateTime.hour == 0 ? 12 : pickupDateTime.hour);
+      final minute = pickupDateTime.minute.toString().padLeft(2, '0');
+      final period = pickupDateTime.hour >= 12 ? 'PM' : 'AM';
+      final month = pickupDateTime.month;
+      final day = pickupDateTime.day;
       pickupTimeStr = '$month/$day at $hour:$minute $period';
     }
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
+        color: isExpired ? Colors.red.shade50 : null,
         border: Border(
           bottom: BorderSide(color: Colors.grey.shade100),
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Item icon
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: isAvailable ? Colors.green.shade100 : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.shopping_bag,
-              size: 26,
-              color: isAvailable ? Colors.green : Colors.grey,
-            ),
-          ),
-          const SizedBox(width: 12),
+          Row(
+            children: [
+              // Item icon
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: isExpired 
+                      ? Colors.red.shade100 
+                      : (isAvailable ? Colors.green.shade100 : Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  isExpired ? Icons.timer_off : Icons.shopping_bag,
+                  size: 26,
+                  color: isExpired ? Colors.red : (isAvailable ? Colors.green : Colors.grey),
+                ),
+              ),
+              const SizedBox(width: 12),
 
-          // Item info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item['name'] ?? '',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isAvailable ? Colors.black : Colors.grey.shade600,
+              // Item info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['name'] ?? '',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isExpired ? Colors.red.shade800 : (isAvailable ? Colors.black : Colors.grey.shade600),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '\$${item['price'].toStringAsFixed(2)} / ${item['unit'] ?? 'ea'}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    // Pickup time
+                    if (pickupTimeStr != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            isExpired ? Icons.warning : Icons.schedule,
+                            size: 14,
+                            color: isExpired ? Colors.red.shade600 : Colors.blue.shade600,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isExpired ? 'EXPIRED: $pickupTimeStr' : 'Pickup: $pickupTimeStr',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isExpired ? Colors.red.shade700 : Colors.blue.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // Quantity controls or remove button
+              if (!isExpired && isAvailable)
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => _decrementItem(item),
+                      icon: Icon(
+                        item['quantity'] > 1
+                            ? Icons.remove_circle_outline
+                            : Icons.delete_outline,
+                        color: Colors.red.shade400,
+                        size: 22,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        item['quantity'].toString(),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => _incrementItem(item),
+                      icon: Icon(
+                        Icons.add_circle_outline,
+                        color: Colors.green.shade700,
+                        size: 22,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
+                    ),
+                  ],
+                )
+              else if (!isExpired)
+                // Just show remove button for unavailable items
+                TextButton.icon(
+                  onPressed: () => _removeItem(item),
+                  icon: const Icon(Icons.close, size: 16),
+                  label: const Text('Remove'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red.shade400,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '\$${item['price'].toStringAsFixed(2)} / ${item['unit'] ?? 'ea'}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                // Pickup time
-                if (pickupTimeStr != null) ...[
-                  const SizedBox(height: 4),
+            ],
+          ),
+          
+          // Expired item action buttons
+          if (isExpired) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.red.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Row(
                     children: [
-                      Icon(
-                        Icons.schedule,
-                        size: 14,
-                        color: Colors.blue.shade600,
+                      Icon(Icons.info_outline, size: 16, color: Colors.red.shade700),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'This pickup time has passed. Please update or remove.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red.shade800,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Pickup: $pickupTimeStr',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.blue.shade700,
-                          fontWeight: FontWeight.w500,
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _updatePickupTime(item),
+                          icon: const Icon(Icons.edit_calendar, size: 16),
+                          label: const Text('Update Time'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green.shade700,
+                            side: BorderSide(color: Colors.green.shade400),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _removeItem(item),
+                          icon: const Icon(Icons.delete_outline, size: 16),
+                          label: const Text('Remove'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red.shade700,
+                            side: BorderSide(color: Colors.red.shade400),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ],
-              ],
-            ),
-          ),
-
-          // Quantity controls or remove button
-          if (isAvailable)
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => _decrementItem(item),
-                  icon: Icon(
-                    item['quantity'] > 1
-                        ? Icons.remove_circle_outline
-                        : Icons.delete_outline,
-                    color: Colors.red.shade400,
-                    size: 22,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                ),
-                SizedBox(
-                  width: 28,
-                  child: Text(
-                    item['quantity'].toString(),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => _incrementItem(item),
-                  icon: Icon(
-                    Icons.add_circle_outline,
-                    color: Colors.green.shade700,
-                    size: 22,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                ),
-              ],
-            )
-          else
-            // Just show remove button for unavailable items
-            TextButton.icon(
-              onPressed: () => _removeItem(item),
-              icon: const Icon(Icons.close, size: 16),
-              label: const Text('Remove'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red.shade400,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
             ),
+          ],
         ],
       ),
     );
+  }
+  
+  Future<void> _updatePickupTime(Map<String, dynamic> item) async {
+    final businessId = item['businessId'] ?? '';
+    
+    if (businessId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to update pickup time')),
+      );
+      return;
+    }
+    
+    final newPickupTime = await PickupTimeSelector.show(
+      context: context,
+      businessId: businessId,
+    );
+    
+    if (newPickupTime != null) {
+      // Update the cart item with new pickup time
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .collection('cart')
+          .doc(item['cartItemId'])
+          .update({
+        'pickupTime': Timestamp.fromDate(newPickupTime),
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pickup time updated for ${item['name']}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
   }
 }
