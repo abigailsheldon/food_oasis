@@ -50,7 +50,7 @@ class _ShopPageState extends State<ShopPage> {
   Widget build(BuildContext context) {
     // Get screen width for responsive grid
     final screenWidth = MediaQuery.of(context).size.width;
-    int crossAxisCount = 2;
+    int crossAxisCount = 3;
     if (screenWidth > 600) crossAxisCount = 3;
     if (screenWidth > 900) crossAxisCount = 4;
 
@@ -284,7 +284,8 @@ class _ShopPageState extends State<ShopPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
+                AspectRatio(
+                  aspectRatio: 4 / 3,
                   child: Stack(
                     children: [
                       Container(
@@ -295,10 +296,12 @@ class _ShopPageState extends State<ShopPage> {
                               : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Icon(
-                          ProductIcons.fromKey(item['iconKey']),
-                          size: 40,
-                          color: isAvailable ? Colors.green : Colors.grey,
+                        child: Center(
+                          child: Icon(
+                            ProductIcons.fromKey(item['iconKey']),
+                            size: 50,
+                            color: isAvailable ? Colors.green : Colors.grey,
+                          ),
                         ),
                       ),
                       // Unavailable badge
