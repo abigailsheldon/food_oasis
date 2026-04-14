@@ -8,6 +8,7 @@ import 'auth/seller_signup_page.dart';
 import 'seller_reviews_page.dart';
 import 'app_bottom_nav.dart';
 import 'product_icons.dart';
+import 'main.dart'; // Import for AuthWrapper
 
 
 class DashboardPage extends StatefulWidget {
@@ -399,6 +400,12 @@ class _DashboardPageState extends State<DashboardPage> {
               icon: const Icon(Icons.logout, color: Colors.red),
               onPressed: () async {
                 await _authService.signOut();
+                if (mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                    (route) => false,
+                  );
+                }
               },
             ),
           ],
@@ -786,6 +793,12 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   isLogout: true,
                   onTap: () async {
                     await widget.authService.signOut();
+                    if (mounted) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                        (route) => false,
+                      );
+                    }
                   },
                 ),
                 const SizedBox(height: 20),
@@ -1458,6 +1471,12 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
               title: const Text("Log Out", style: TextStyle(color: Colors.red)),
               onTap: () async {
                 await widget.authService.signOut();
+                if (mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                    (route) => false,
+                  );
+                }
               },
             ),
           ),

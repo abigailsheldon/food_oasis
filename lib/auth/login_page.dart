@@ -96,25 +96,14 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 60),
+                const SizedBox(height: 40),
 
-                // Logo/Title
-                Icon(
-                  Icons.eco,
-                  size: 80,
-                  color: Colors.green.shade600,
+                // Logo
+                Image.asset(
+                  'assets/Food_Oasis_App_Logo.png',
+                  height: 180,
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Food Oasis',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(height: 8),
                 Text(
                   'Welcome back!',
                   textAlign: TextAlign.center,
@@ -123,7 +112,7 @@ class _LoginPageState extends State<LoginPage> {
                     color: Colors.grey.shade600,
                   ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
 
                 // Email field
                 TextFormField(
@@ -140,8 +129,12 @@ class _LoginPageState extends State<LoginPage> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
+                    // Email regex: requires @ and a domain with at least one dot
+                    final emailRegex = RegExp(
+                      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+                    );
+                    if (!emailRegex.hasMatch(value)) {
+                      return 'Please enter a valid email (e.g., name@example.com)';
                     }
                     return null;
                   },

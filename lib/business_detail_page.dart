@@ -6,6 +6,7 @@ import 'cart_page.dart';
 import 'cart_icon_badge.dart';
 import 'app_bottom_nav.dart';
 import 'pickup_time_selector.dart';
+import 'navigate_page.dart';
 
 import 'services/firestore_service.dart';
 
@@ -167,9 +168,9 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
 
                     const SizedBox(height: 16),
 
-                    // Address
+                    // Address - tappable to open in map
                     if (address.isNotEmpty)
-                      _buildInfoRow(Icons.location_on, address),
+                      _buildAddressRow(Icons.location_on, address),
 
                     // Location details
                     if (locationDetails.isNotEmpty)
@@ -281,8 +282,42 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
   Widget _buildBusinessHoursSection() {
     final hours = widget.seller['hours'] as Map<String, dynamic>?;
     
+    // If no hours available, show unavailable message
     if (hours == null || hours.isEmpty) {
-      return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule, size: 20, color: Colors.grey.shade500),
+              const SizedBox(width: 8),
+              Text(
+                'Business Hours',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 18, color: Colors.grey.shade600),
+                const SizedBox(width: 8),
+                Text(
+                  'Hours not available - contact seller for details',
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      );
     }
 
     const weekdayOrder = [
@@ -316,10 +351,11 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
       final parts = time.split(':');
       if (parts.length != 2) return time;
       final hour = int.tryParse(parts[0]) ?? 0;
-      final minute = parts[1];
+      final minute = int.tryParse(parts[1]) ?? 0;
       final period = hour >= 12 ? 'PM' : 'AM';
       final hour12 = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-      return '$hour12:$minute $period';
+      // Pad minute with leading zero
+      return '$hour12:${minute.toString().padLeft(2, '0')} $period';
     }
 
     return Column(
@@ -1031,6 +1067,45 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                 text,
                 style: TextStyle(fontSize: 14, color: Colors.green.shade700, decoration: TextDecoration.underline),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddressRow(IconData icon, String address) {
+    final hasCoordinates = widget.seller['latitude'] != null && widget.seller['longitude'] != null;
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => NavigatePage(focusBusiness: widget.seller),
+            ),
+          );
+        },
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: Colors.green.shade600),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                address,
+                style: TextStyle(
+                  fontSize: 14, 
+                  color: Colors.green.shade700, 
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.map_outlined,
+              size: 18,
+              color: hasCoordinates ? Colors.green.shade600 : Colors.grey,
             ),
           ],
         ),

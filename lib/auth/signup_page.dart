@@ -193,8 +193,12 @@ class _SignupPageState extends State<SignupPage> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
+                    // Email regex: requires @ and a domain with at least one dot
+                    final emailRegex = RegExp(
+                      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+                    );
+                    if (!emailRegex.hasMatch(value)) {
+                      return 'Please enter a valid email (e.g., name@example.com)';
                     }
                     return null;
                   },

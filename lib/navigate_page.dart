@@ -10,14 +10,16 @@ import 'app_bottom_nav.dart';
 
 
 class NavigatePage extends StatefulWidget {
-  const NavigatePage({super.key});
+  final Map<String, dynamic>? focusBusiness; // Optional business to focus on
+  
+  const NavigatePage({super.key, this.focusBusiness});
 
   @override
   State<NavigatePage> createState() => _NavigatePageState();
 }
 
 class _NavigatePageState extends State<NavigatePage> {
-  late GoogleMapController _mapController;
+  GoogleMapController? _mapController;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Default center: Atlanta, GA
@@ -34,6 +36,11 @@ class _NavigatePageState extends State<NavigatePage> {
   void initState() {
     super.initState();
     _loadBusinessMarkers();
+    
+    // If a business was passed in, select it
+    if (widget.focusBusiness != null) {
+      _selectedBusiness = widget.focusBusiness;
+    }
   }
 
   Future<void> _loadBusinessMarkers() async {
@@ -96,6 +103,13 @@ class _NavigatePageState extends State<NavigatePage> {
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
+    
+    // If a business was passed in, focus on it after map loads
+    if (widget.focusBusiness != null) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _goToBusiness(widget.focusBusiness!);
+      });
+    }
   }
 
   List<Map<String, dynamic>> get _filteredBusinesses {
@@ -112,8 +126,8 @@ class _NavigatePageState extends State<NavigatePage> {
     final lat = business['latitude'] as double?;
     final lng = business['longitude'] as double?;
 
-    if (lat != null && lng != null) {
-      _mapController.animateCamera(
+    if (lat != null && lng != null && _mapController != null) {
+      _mapController!.animateCamera(
         CameraUpdate.newLatLngZoom(LatLng(lat, lng), 15),
       );
       setState(() {
