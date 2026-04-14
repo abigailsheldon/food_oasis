@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'seller_signup_page.dart';
 import '../dashboard_page.dart';
+import 'terms_page.dart';
+import '../main.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -60,18 +62,11 @@ class _SignupPageState extends State<SignupPage> {
               backgroundColor: Colors.green,
             ),
           );
-          // Pop back to login or let auth state handle navigation
-          if (_selectedRole == 'seller') {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const SellerOnboardingPage()),
-            );
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const DashboardPage()),
-            );
-          }
+          // Send to home
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const MainPage()),
+            (route) => false,
+          );
         }
       } else {
         if (mounted) {
@@ -296,7 +291,24 @@ class _SignupPageState extends State<SignupPage> {
                 SizedBox(
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _signup,
+                    onPressed: _isLoading
+                      ? null
+                      : () async {
+                          if (!_formKey.currentState!.validate()) return;
+
+                          final accepted = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TermsPage(
+                                onAccept: () => Navigator.pop(context, true),
+                              ),
+                            ),
+                          );
+
+                          if (accepted == true) {
+                            await _signup();
+                          }
+                        },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
