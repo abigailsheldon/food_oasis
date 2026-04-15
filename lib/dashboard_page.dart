@@ -481,6 +481,18 @@ class _DashboardPageState extends State<DashboardPage> {
                   },
                 ),
               ),
+              const SizedBox(height: 12),
+
+              // ================= PAYMENT METHODS CARD =================
+              Card(
+                child: ListTile(
+                  leading: Icon(Icons.credit_card, color: Colors.blue.shade700),
+                  title: const Text('Payment Methods'),
+                  subtitle: const Text('Manage your saved cards'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showSavedCards(context),
+                ),
+              ),
               const SizedBox(height: 24),
 
               // ================= PURCHASE HISTORY =================
@@ -580,6 +592,586 @@ class _DashboardPageState extends State<DashboardPage> {
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSavedCards(BuildContext context) {
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Payment Methods',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showAddCardDialog(context);
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Card'),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Cards list
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .collection('savedCards')
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
+
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final cards = snapshot.data?.docs ?? [];
+
+                    if (cards.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.credit_card_off,
+                              size: 64,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No saved cards',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Add a card to speed up checkout',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showAddCardDialog(context);
+                              },
+                              icon: const Icon(Icons.add),
+                              label: const Text('Add Card'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: cards.length,
+                      itemBuilder: (context, index) {
+                        final card = cards[index].data() as Map<String, dynamic>;
+                        final cardId = cards[index].id;
+                        final lastFour = card['lastFour'] ?? '****';
+                        final cardType = card['cardType'] ?? 'Card';
+                        final holderName = card['holderName'] ?? '';
+                        final expiry = card['expiry'] ?? '';
+                        final isDefault = card['isDefault'] ?? false;
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: isDefault
+                                ? BorderSide(color: Colors.green.shade400, width: 2)
+                                : BorderSide.none,
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            leading: Container(
+                              width: 50,
+                              height: 35,
+                              decoration: BoxDecoration(
+                                color: _getCardColor(cardType),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  _getCardIcon(cardType),
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                            title: Row(
+                              children: [
+                                Text(
+                                  '$cardType •••• $lastFour',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (isDefault) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Default',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.green.shade700,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            subtitle: Text(
+                              holderName.isNotEmpty
+                                  ? '$holderName • Exp: $expiry'
+                                  : 'Exp: $expiry',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'default') {
+                                  _setDefaultCard(user.uid, cardId, cards);
+                                } else if (value == 'delete') {
+                                  _confirmDeleteCard(context, user.uid, cardId, lastFour);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                if (!isDefault)
+                                  const PopupMenuItem(
+                                    value: 'default',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.check_circle_outline, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('Set as Default'),
+                                      ],
+                                    ),
+                                  ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Delete', style: TextStyle(color: Colors.red)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getCardColor(String cardType) {
+    switch (cardType.toLowerCase()) {
+      case 'visa':
+        return const Color(0xFF1A1F71);
+      case 'mastercard':
+        return const Color(0xFFEB001B);
+      case 'amex':
+      case 'american express':
+        return const Color(0xFF006FCF);
+      case 'discover':
+        return const Color(0xFFFF6000);
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
+  IconData _getCardIcon(String cardType) {
+    switch (cardType.toLowerCase()) {
+      case 'visa':
+      case 'mastercard':
+      case 'amex':
+      case 'american express':
+      case 'discover':
+        return Icons.credit_card;
+      default:
+        return Icons.credit_card;
+    }
+  }
+
+  void _showAddCardDialog(BuildContext context) {
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    final cardNumberController = TextEditingController();
+    final holderNameController = TextEditingController();
+    final expiryController = TextEditingController();
+    final cvvController = TextEditingController();
+    bool setAsDefault = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Payment Method'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: cardNumberController,
+                  decoration: InputDecoration(
+                    labelText: 'Card Number',
+                    prefixIcon: const Icon(Icons.credit_card),
+                    hintText: '1234 5678 9012 3456',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                  maxLength: 19,
+                  onChanged: (value) {
+                    // Auto-format with spaces
+                    final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+                    final formatted = digitsOnly.replaceAllMapped(
+                      RegExp(r'.{4}'),
+                      (match) => '${match.group(0)} ',
+                    ).trim();
+                    if (formatted != value) {
+                      cardNumberController.value = TextEditingValue(
+                        text: formatted,
+                        selection: TextSelection.collapsed(offset: formatted.length),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: holderNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Cardholder Name',
+                    prefixIcon: const Icon(Icons.person),
+                    hintText: 'JOHN DOE',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: expiryController,
+                        decoration: InputDecoration(
+                          labelText: 'Expiry',
+                          hintText: 'MM/YY',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 5,
+                        onChanged: (value) {
+                          // Auto-format MM/YY
+                          final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+                          String formatted = digitsOnly;
+                          if (digitsOnly.length >= 2) {
+                            formatted = '${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2)}';
+                          }
+                          if (formatted != value) {
+                            expiryController.value = TextEditingValue(
+                              text: formatted,
+                              selection: TextSelection.collapsed(offset: formatted.length),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: cvvController,
+                        decoration: InputDecoration(
+                          labelText: 'CVV',
+                          hintText: '123',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        obscureText: true,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  value: setAsDefault,
+                  onChanged: (value) {
+                    setDialogState(() => setAsDefault = value ?? false);
+                  },
+                  title: const Text('Set as default payment method'),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final cardNumber = cardNumberController.text.replaceAll(' ', '');
+                final holderName = holderNameController.text.trim();
+                final expiry = expiryController.text.trim();
+                final cvv = cvvController.text.trim();
+
+                // Basic validation
+                if (cardNumber.length < 13) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid card number')),
+                  );
+                  return;
+                }
+                if (expiry.length != 5) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid expiry date (MM/YY)')),
+                  );
+                  return;
+                }
+                if (cvv.length < 3) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid CVV')),
+                  );
+                  return;
+                }
+
+                // Determine card type
+                final cardType = _detectCardType(cardNumber);
+                final lastFour = cardNumber.substring(cardNumber.length - 4);
+
+                // If setting as default, unset other defaults first
+                if (setAsDefault) {
+                  final existingCards = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .collection('savedCards')
+                      .where('isDefault', isEqualTo: true)
+                      .get();
+
+                  for (final doc in existingCards.docs) {
+                    await doc.reference.update({'isDefault': false});
+                  }
+                }
+
+                // Save card (in production, use a payment processor - this is demo only)
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .collection('savedCards')
+                    .add({
+                  'lastFour': lastFour,
+                  'cardType': cardType,
+                  'holderName': holderName,
+                  'expiry': expiry,
+                  'isDefault': setAsDefault,
+                  'createdAt': FieldValue.serverTimestamp(),
+                  // NOTE: Never store full card number or CVV in production!
+                  // Use Stripe, Square, or another payment processor
+                });
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$cardType •••• $lastFour added'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  // Reopen saved cards sheet
+                  _showSavedCards(context);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Add Card'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _detectCardType(String cardNumber) {
+    final number = cardNumber.replaceAll(RegExp(r'\D'), '');
+    
+    if (number.startsWith('4')) {
+      return 'Visa';
+    } else if (number.startsWith('5') || 
+               (int.tryParse(number.substring(0, 4)) ?? 0) >= 2221 &&
+               (int.tryParse(number.substring(0, 4)) ?? 0) <= 2720) {
+      return 'Mastercard';
+    } else if (number.startsWith('34') || number.startsWith('37')) {
+      return 'Amex';
+    } else if (number.startsWith('6011') || 
+               number.startsWith('65') ||
+               number.startsWith('644') ||
+               number.startsWith('645') ||
+               number.startsWith('646') ||
+               number.startsWith('647') ||
+               number.startsWith('648') ||
+               number.startsWith('649')) {
+      return 'Discover';
+    }
+    return 'Card';
+  }
+
+  Future<void> _setDefaultCard(String uid, String cardId, List<QueryDocumentSnapshot> allCards) async {
+    // Unset all other defaults
+    for (final doc in allCards) {
+      if (doc.id != cardId) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('savedCards')
+            .doc(doc.id)
+            .update({'isDefault': false});
+      }
+    }
+
+    // Set this card as default
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('savedCards')
+        .doc(cardId)
+        .update({'isDefault': true});
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Default payment method updated'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  void _confirmDeleteCard(BuildContext context, String uid, String cardId, String lastFour) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Card'),
+        content: Text('Are you sure you want to remove the card ending in $lastFour?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid)
+                  .collection('savedCards')
+                  .doc(cardId)
+                  .delete();
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Card removed'),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
           ),
         ],
       ),
