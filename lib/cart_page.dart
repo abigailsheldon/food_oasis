@@ -95,6 +95,76 @@ class _CartPageState extends State<CartPage> {
     return _businessAvailability[businessId] ?? true;
   }
 
+  /// Check if a pickup time is still valid based on business hours
+  /// Returns: 'valid', 'expired', 'day_closed', or 'outside_hours'
+  Future<String> _checkPickupTimeValidity(String businessId, DateTime pickupTime) async {
+    // First check if time has passed
+    if (pickupTime.isBefore(DateTime.now())) {
+      return 'expired';
+    }
+
+    // Get business info to check hours
+    final businessInfo = await _getBusinessInfo(businessId);
+    final hours = businessInfo['hours'] as Map<String, dynamic>?;
+    
+    // If no hours set, assume valid (flexible hours)
+    if (hours == null || hours.isEmpty) {
+      return 'valid';
+    }
+
+    // Get the day of week for the pickup time
+    final dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayName = dayNames[pickupTime.weekday - 1];
+    
+    final dayHours = hours[dayName] as Map<String, dynamic>?;
+    
+    // Check if business is open on this day
+    if (dayHours == null || dayHours['isOpen'] != true) {
+      return 'day_closed';
+    }
+
+    // Check if pickup time is within business hours
+    final openStr = dayHours['open'] as String?;
+    final closeStr = dayHours['close'] as String?;
+    
+    if (openStr != null && closeStr != null) {
+      final openParts = openStr.split(':');
+      final closeParts = closeStr.split(':');
+      
+      if (openParts.length >= 2 && closeParts.length >= 2) {
+        final openHour = int.tryParse(openParts[0]) ?? 0;
+        final openMinute = int.tryParse(openParts[1]) ?? 0;
+        final closeHour = int.tryParse(closeParts[0]) ?? 0;
+        final closeMinute = int.tryParse(closeParts[1]) ?? 0;
+        
+        final pickupMinutes = pickupTime.hour * 60 + pickupTime.minute;
+        final openMinutes = openHour * 60 + openMinute;
+        final closeMinutes = closeHour * 60 + closeMinute;
+        
+        if (pickupMinutes < openMinutes || pickupMinutes >= closeMinutes) {
+          return 'outside_hours';
+        }
+      }
+    }
+
+    return 'valid';
+  }
+
+  // Cache for pickup time validity to avoid repeated async calls
+  Map<String, String> _pickupTimeValidityCache = {};
+
+  String _getCachedValidity(String cartItemId) {
+    return _pickupTimeValidityCache[cartItemId] ?? 'checking';
+  }
+
+  void _updateValidityCache(String cartItemId, String validity) {
+    if (_pickupTimeValidityCache[cartItemId] != validity) {
+      setState(() {
+        _pickupTimeValidityCache[cartItemId] = validity;
+      });
+    }
+  }
+
   // Group cart items by businessId
   Map<String, List<Map<String, dynamic>>> _groupByVendor(List<Map<String, dynamic>> items) {
     final Map<String, List<Map<String, dynamic>>> grouped = {};
@@ -655,9 +725,8 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildCartItemCard(Map<String, dynamic> item, {required bool isAvailable}) {
-    // Parse pickup time and check if expired
+    // Parse pickup time
     String? pickupTimeStr;
-    bool isExpired = false;
     DateTime? pickupDateTime;
     
     final pickupTime = item['pickupTime'];
@@ -668,9 +737,6 @@ class _CartPageState extends State<CartPage> {
         pickupDateTime = pickupTime as DateTime;
       }
       
-      // Check if pickup time has passed
-      isExpired = pickupDateTime.isBefore(DateTime.now());
-      
       final hour = pickupDateTime.hour > 12 ? pickupDateTime.hour - 12 : (pickupDateTime.hour == 0 ? 12 : pickupDateTime.hour);
       final minute = pickupDateTime.minute.toString().padLeft(2, '0');
       final period = pickupDateTime.hour >= 12 ? 'PM' : 'AM';
@@ -679,10 +745,40 @@ class _CartPageState extends State<CartPage> {
       pickupTimeStr = '$month/$day at $hour:$minute $period';
     }
 
+    final cartItemId = item['cartItemId'] ?? '';
+    final businessId = item['businessId'] ?? '';
+
+    // Check validity asynchronously if we have a pickup time
+    if (pickupDateTime != null && businessId.isNotEmpty) {
+      final cachedValidity = _getCachedValidity(cartItemId);
+      if (cachedValidity == 'checking') {
+        // Trigger async check
+        _checkPickupTimeValidity(businessId, pickupDateTime).then((validity) {
+          _updateValidityCache(cartItemId, validity);
+        });
+      }
+    }
+
+    final validity = pickupDateTime != null ? _getCachedValidity(cartItemId) : 'valid';
+    final isInvalid = validity != 'valid' && validity != 'checking';
+    final isExpired = validity == 'expired';
+    final isDayClosed = validity == 'day_closed';
+    final isOutsideHours = validity == 'outside_hours';
+
+    // Determine warning message based on validity
+    String? warningMessage;
+    if (isExpired) {
+      warningMessage = 'This pickup time has passed. Please update or remove.';
+    } else if (isDayClosed) {
+      warningMessage = 'The seller is now closed on this day. Please select a new time.';
+    } else if (isOutsideHours) {
+      warningMessage = 'This time is outside the seller\'s current hours. Please update.';
+    }
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isExpired ? Colors.red.shade50 : null,
+        color: isInvalid ? (isExpired ? Colors.red.shade50 : Colors.orange.shade50) : null,
         border: Border(
           bottom: BorderSide(color: Colors.grey.shade100),
         ),
@@ -697,15 +793,17 @@ class _CartPageState extends State<CartPage> {
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
-                  color: isExpired 
-                      ? Colors.red.shade100 
+                  color: isInvalid 
+                      ? (isExpired ? Colors.red.shade100 : Colors.orange.shade100)
                       : (isAvailable ? Colors.green.shade100 : Colors.grey.shade200),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  isExpired ? Icons.timer_off : Icons.shopping_bag,
+                  isInvalid ? (isExpired ? Icons.timer_off : Icons.event_busy) : Icons.shopping_bag,
                   size: 26,
-                  color: isExpired ? Colors.red : (isAvailable ? Colors.green : Colors.grey),
+                  color: isInvalid 
+                      ? (isExpired ? Colors.red : Colors.orange.shade700)
+                      : (isAvailable ? Colors.green : Colors.grey),
                 ),
               ),
               const SizedBox(width: 12),
@@ -720,7 +818,9 @@ class _CartPageState extends State<CartPage> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: isExpired ? Colors.red.shade800 : (isAvailable ? Colors.black : Colors.grey.shade600),
+                        color: isInvalid 
+                            ? (isExpired ? Colors.red.shade800 : Colors.orange.shade800)
+                            : (isAvailable ? Colors.black : Colors.grey.shade600),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -737,17 +837,27 @@ class _CartPageState extends State<CartPage> {
                       Row(
                         children: [
                           Icon(
-                            isExpired ? Icons.warning : Icons.schedule,
+                            isInvalid ? Icons.warning : Icons.schedule,
                             size: 14,
-                            color: isExpired ? Colors.red.shade600 : Colors.blue.shade600,
+                            color: isInvalid 
+                                ? (isExpired ? Colors.red.shade600 : Colors.orange.shade600)
+                                : Colors.blue.shade600,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            isExpired ? 'EXPIRED: $pickupTimeStr' : 'Pickup: $pickupTimeStr',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isExpired ? Colors.red.shade700 : Colors.blue.shade700,
-                              fontWeight: FontWeight.w500,
+                          Expanded(
+                            child: Text(
+                              isExpired 
+                                  ? 'EXPIRED: $pickupTimeStr'
+                                  : (isDayClosed || isOutsideHours)
+                                      ? 'UNAVAILABLE: $pickupTimeStr'
+                                      : 'Pickup: $pickupTimeStr',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isInvalid 
+                                    ? (isExpired ? Colors.red.shade700 : Colors.orange.shade700)
+                                    : Colors.blue.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
@@ -758,7 +868,7 @@ class _CartPageState extends State<CartPage> {
               ),
 
               // Quantity controls or remove button
-              if (!isExpired && isAvailable)
+              if (!isInvalid && isAvailable)
                 Row(
                   children: [
                     IconButton(
@@ -802,7 +912,7 @@ class _CartPageState extends State<CartPage> {
                     ),
                   ],
                 )
-              else if (!isExpired)
+              else if (!isInvalid)
                 // Just show remove button for unavailable items
                 TextButton.icon(
                   onPressed: () => _removeItem(item),
@@ -816,29 +926,35 @@ class _CartPageState extends State<CartPage> {
             ],
           ),
           
-          // Expired item action buttons
-          if (isExpired) ...[
+          // Invalid pickup time action buttons
+          if (isInvalid && warningMessage != null) ...[
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.red.shade100,
+                color: isExpired ? Colors.red.shade100 : Colors.orange.shade100,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade300),
+                border: Border.all(
+                  color: isExpired ? Colors.red.shade300 : Colors.orange.shade300,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.info_outline, size: 16, color: Colors.red.shade700),
+                      Icon(
+                        Icons.info_outline, 
+                        size: 16, 
+                        color: isExpired ? Colors.red.shade700 : Colors.orange.shade700,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'This pickup time has passed. Please update or remove.',
+                          warningMessage,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.red.shade800,
+                            color: isExpired ? Colors.red.shade800 : Colors.orange.shade800,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -886,6 +1002,7 @@ class _CartPageState extends State<CartPage> {
   
   Future<void> _updatePickupTime(Map<String, dynamic> item) async {
     final businessId = item['businessId'] ?? '';
+    final cartItemId = item['cartItemId'] ?? '';
     
     if (businessId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -909,6 +1026,13 @@ class _CartPageState extends State<CartPage> {
           .update({
         'pickupTime': Timestamp.fromDate(newPickupTime),
       });
+      
+      // Clear the validity cache for this item so it gets re-checked
+      if (cartItemId.isNotEmpty) {
+        setState(() {
+          _pickupTimeValidityCache.remove(cartItemId);
+        });
+      }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
