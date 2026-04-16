@@ -38,6 +38,30 @@ class _CheckoutPageState extends State<CheckoutPage> {
     super.dispose();
   }
 
+  String _detectCardType(String cardNumber) {
+    final number = cardNumber.replaceAll(RegExp(r'\D'), '');
+    
+    if (number.startsWith('4')) {
+      return 'Visa';
+    } else if (number.startsWith('5') || 
+               (number.length >= 4 && (int.tryParse(number.substring(0, 4)) ?? 0) >= 2221 &&
+               (int.tryParse(number.substring(0, 4)) ?? 0) <= 2720)) {
+      return 'Mastercard';
+    } else if (number.startsWith('34') || number.startsWith('37')) {
+      return 'Amex';
+    } else if (number.startsWith('6011') || 
+               number.startsWith('65') ||
+               number.startsWith('644') ||
+               number.startsWith('645') ||
+               number.startsWith('646') ||
+               number.startsWith('647') ||
+               number.startsWith('648') ||
+               number.startsWith('649')) {
+      return 'Discover';
+    }
+    return 'Card';
+  }
+
   Future<void> _saveCardToFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -46,9 +70,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (cardNumber.length < 4) return;
 
     final lastFour = cardNumber.substring(cardNumber.length - 4);
-    final nickname = _cardNicknameController.text.isNotEmpty
-        ? _cardNicknameController.text
-        : '$selectedPayment ending in $lastFour';
+    final cardType = _detectCardType(cardNumber);
+    final nickname = _cardNicknameController.text.trim().isNotEmpty
+        ? _cardNicknameController.text.trim()
+        : '$cardType •••• $lastFour';
+
+    // Check if this should be default (first card)
+    final existingCards = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('savedCards')
+        .get();
+    
+    final isDefault = existingCards.docs.isEmpty;
 
     await FirebaseFirestore.instance
         .collection('users')
@@ -57,8 +91,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
         .add({
       'nickname': nickname,
       'lastFour': lastFour,
+      'cardType': cardType,
+      'holderName': _nameController.text.trim(),
       'expiry': _expiryController.text,
-      'cardType': selectedPayment,
+      'isDefault': isDefault,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -92,22 +128,77 @@ class _CheckoutPageState extends State<CheckoutPage> {
             'price': item['price'] ?? 0,
             'quantity': item['quantity'] ?? 1,
             'unit': item['unit'] ?? '',
+            'iconKey': item['iconKey'] ?? '',
+            'pickupTime': item['pickupTime'],
+            'itemStatus': 'pending', // For seller to mark as ready
           });
           orderTotal += (item['price'] ?? 0) * (item['quantity'] ?? 1);
         }
 
-        // Save order to Firestore
-        await FirebaseFirestore.instance
+        // Generate a shared order ID
+        final orderRef = FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .collection('orders')
-            .add({
+            .doc();
+        final orderId = orderRef.id;
+
+        // Get buyer info
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        final userData = userDoc.data() ?? {};
+        final buyerName = userData['name'] ?? user.email?.split('@')[0] ?? 'Customer';
+        final buyerEmail = user.email ?? '';
+
+        // Save order to buyer's orders
+        await orderRef.set({
           'items': orderItems,
           'total': orderTotal,
-          'status': 'completed',
+          'status': 'pending', // Changed from 'completed' to 'pending'
           'deliveryAddress': '${_addressController.text}, ${_cityController.text}',
           'createdAt': FieldValue.serverTimestamp(),
         });
+
+        // Group items by businessId for seller orders
+        final Map<String, List<Map<String, dynamic>>> itemsByBusiness = {};
+        for (var item in orderItems) {
+          final businessId = item['businessId'] ?? '';
+          if (businessId.isNotEmpty) {
+            itemsByBusiness.putIfAbsent(businessId, () => []);
+            itemsByBusiness[businessId]!.add(item);
+          }
+        }
+
+        // Create seller order for each business
+        for (var entry in itemsByBusiness.entries) {
+          final businessId = entry.key;
+          final businessItems = entry.value;
+          
+          // Calculate subtotal for this seller
+          double sellerTotal = 0;
+          for (var item in businessItems) {
+            sellerTotal += (item['price'] ?? 0) * (item['quantity'] ?? 1);
+          }
+
+          await FirebaseFirestore.instance
+              .collection('sellerOrders')
+              .doc(businessId)
+              .collection('orders')
+              .doc(orderId) // Use same orderId for reference
+              .set({
+            'orderId': orderId,
+            'buyerId': user.uid,
+            'buyerName': buyerName,
+            'buyerEmail': buyerEmail,
+            'items': businessItems,
+            'subtotal': sellerTotal,
+            'deliveryAddress': '${_addressController.text}, ${_cityController.text}',
+            'status': 'pending',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
 
         // Clear cart after saving order
         for (var doc in cartSnapshot.docs) {
@@ -258,21 +349,99 @@ class _CheckoutPageState extends State<CheckoutPage> {
               }).toList(),
             ),
             const SizedBox(height: 12),
-            _buildTextField(
-                _cardNumberController, 'Card Number', Icons.credit_card,
-                keyboardType: TextInputType.number),
+            // Card Number with auto-formatting
+            TextField(
+              controller: _cardNumberController,
+              keyboardType: TextInputType.number,
+              maxLength: 19,
+              decoration: InputDecoration(
+                labelText: 'Card Number',
+                hintText: '1234 5678 9012 3456',
+                prefixIcon: Icon(Icons.credit_card, color: Colors.green.shade600),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.green.shade600, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                counterText: '', // Hide character counter
+              ),
+              onChanged: (value) {
+                // Auto-format with spaces every 4 digits
+                final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+                final formatted = digitsOnly.replaceAllMapped(
+                  RegExp(r'.{4}'),
+                  (match) => '${match.group(0)} ',
+                ).trim();
+                if (formatted != value) {
+                  _cardNumberController.value = TextEditingValue(
+                    text: formatted,
+                    selection: TextSelection.collapsed(offset: formatted.length),
+                  );
+                }
+              },
+            ),
             const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
-                  child: _buildTextField(
-                      _expiryController, 'MM/YY', Icons.calendar_today,
-                      keyboardType: TextInputType.number),
+                  // Expiry with auto-formatting MM/YY
+                  child: TextField(
+                    controller: _expiryController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 5,
+                    decoration: InputDecoration(
+                      labelText: 'MM/YY',
+                      hintText: 'MM/YY',
+                      prefixIcon: Icon(Icons.calendar_today, color: Colors.green.shade600),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.green.shade600, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      counterText: '', // Hide character counter
+                    ),
+                    onChanged: (value) {
+                      // Auto-format MM/YY
+                      final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+                      String formatted = digitsOnly;
+                      if (digitsOnly.length >= 2) {
+                        formatted = '${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2)}';
+                      }
+                      if (formatted != value) {
+                        _expiryController.value = TextEditingValue(
+                          text: formatted,
+                          selection: TextSelection.collapsed(offset: formatted.length),
+                        );
+                      }
+                    },
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _buildTextField(_cvvController, 'CVV', Icons.lock_outline,
-                      keyboardType: TextInputType.number),
+                  // CVV with obscured text
+                  child: TextField(
+                    controller: _cvvController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'CVV',
+                      hintText: '•••',
+                      prefixIcon: Icon(Icons.lock_outline, color: Colors.green.shade600),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.green.shade600, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      counterText: '', // Hide character counter
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -442,4 +611,3 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 }
-

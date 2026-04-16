@@ -186,12 +186,16 @@ class _ShopPageState extends State<ShopPage> {
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      const Spacer(),
-                                      Text(
-                                        'Seller not accepting orders',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade500,
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          'Seller not accepting orders',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade500,
+                                          ),
+                                          textAlign: TextAlign.right,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ],
@@ -331,37 +335,43 @@ class _ShopPageState extends State<ShopPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 6),
-
-                Text(
-                  item['name'] ?? '',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: isAvailable ? Colors.black : Colors.grey.shade600,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
                 const SizedBox(height: 4),
 
-                Text(
-                  '\$${(item['price'] ?? 0).toString()}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: isAvailable ? Colors.green.shade700 : Colors.grey,
-                  ),
-                ),
-
-                const SizedBox(height: 2),
-
-                Text(
-                  item['category'] ?? '',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey.shade600,
+                // Flexible text section that won't overflow
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item['name'] ?? '',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isAvailable ? Colors.black : Colors.grey.shade600,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '\$${(item['price'] ?? 0).toString()}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isAvailable ? Colors.green.shade700 : Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        item['category'] ?? '',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.grey.shade600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ],

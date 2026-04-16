@@ -185,7 +185,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 4),
-                    Row(
+                    Wrap(
+                      spacing: 8,
                       children: [
                         Text(
                           date != null
@@ -193,13 +194,11 @@ class _DashboardPageState extends State<DashboardPage> {
                               : 'Date unknown',
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                         ),
-                        if (vendorCount > 1) ...[
-                          const SizedBox(width: 8),
+                        if (vendorCount > 1)
                           Text(
                             '• $vendorCount sellers',
                             style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                           ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -321,6 +320,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                         Text(
                                           itemData['name'] ?? 'Unknown item',
                                           style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                         Text(
                                           'Qty: ${itemData['quantity']} × \$${(itemData['price'] ?? 0).toStringAsFixed(2)}',
@@ -331,11 +332,14 @@ class _DashboardPageState extends State<DashboardPage> {
                                             children: [
                                               Icon(Icons.schedule, size: 12, color: Colors.blue.shade600),
                                               const SizedBox(width: 4),
-                                              Text(
-                                                'Pickup: $pickupTimeStr',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.blue.shade700,
+                                              Flexible(
+                                                child: Text(
+                                                  'Pickup: $pickupTimeStr',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.blue.shade700,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
                                             ],
@@ -880,6 +884,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final holderNameController = TextEditingController();
     final expiryController = TextEditingController();
     final cvvController = TextEditingController();
+    final nicknameController = TextEditingController();
     bool setAsDefault = false;
 
     showDialog(
@@ -980,6 +985,18 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nicknameController,
+                  decoration: InputDecoration(
+                    labelText: 'Card Nickname (optional)',
+                    prefixIcon: const Icon(Icons.label_outline),
+                    hintText: 'e.g., Personal Visa, Work Card',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 8),
                 CheckboxListTile(
                   value: setAsDefault,
@@ -1004,6 +1021,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 final holderName = holderNameController.text.trim();
                 final expiry = expiryController.text.trim();
                 final cvv = cvvController.text.trim();
+                final nickname = nicknameController.text.trim();
 
                 // Basic validation
                 if (cardNumber.length < 13) {
@@ -1053,6 +1071,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   'cardType': cardType,
                   'holderName': holderName,
                   'expiry': expiry,
+                  'nickname': nickname.isNotEmpty ? nickname : '$cardType •••• $lastFour',
                   'isDefault': setAsDefault,
                   'createdAt': FieldValue.serverTimestamp(),
                   // NOTE: Never store full card number or CVV in production!
@@ -1994,24 +2013,495 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
 
   // ORDERS SECTION (placeholder)
   Widget _buildOrdersSection() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    final user = widget.authService.currentUser;
+    if (user == null) {
+      return const Center(child: Text('Please log in'));
+    }
+
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
+      builder: (context, userSnapshot) {
+        if (!userSnapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
+        final businessId = userData?['businessId'] ?? '';
+
+        if (businessId.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.store_outlined, size: 80, color: Colors.grey.shade400),
+                const SizedBox(height: 16),
+                Text(
+                  "No Business Found",
+                  style: TextStyle(fontSize: 20, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Set up your business profile to receive orders",
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('sellerOrders')
+              .doc(businessId)
+              .collection('orders')
+              .orderBy('createdAt', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.inbox_outlined, size: 80, color: Colors.grey.shade400),
+                    const SizedBox(height: 16),
+                    Text(
+                      "No Orders Yet",
+                      style: TextStyle(fontSize: 20, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Orders from customers will appear here",
+                      style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final orders = snapshot.data!.docs;
+            
+            // Separate pending and completed orders
+            final pendingOrders = orders.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return data['status'] == 'pending';
+            }).toList();
+            
+            final completedOrders = orders.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return data['status'] != 'pending';
+            }).toList();
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text(
+                        "Order Management",
+                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: pendingOrders.isNotEmpty 
+                              ? Colors.orange.shade100 
+                              : Colors.green.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              pendingOrders.isNotEmpty 
+                                  ? Icons.pending_actions 
+                                  : Icons.check_circle,
+                              size: 16,
+                              color: pendingOrders.isNotEmpty 
+                                  ? Colors.orange.shade700 
+                                  : Colors.green.shade700,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${pendingOrders.length} pending',
+                              style: TextStyle(
+                                color: pendingOrders.isNotEmpty 
+                                    ? Colors.orange.shade700 
+                                    : Colors.green.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Pending Orders Section
+                  if (pendingOrders.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.access_time, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Pending Orders (${pendingOrders.length})',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...pendingOrders.map((doc) => _buildOrderCard(doc, businessId, isPending: true)),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Completed Orders Section
+                  if (completedOrders.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle_outline, color: Colors.grey.shade600, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Completed Orders (${completedOrders.length})',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...completedOrders.map((doc) => _buildOrderCard(doc, businessId, isPending: false)),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOrderCard(DocumentSnapshot doc, String businessId, {required bool isPending}) {
+    final data = doc.data() as Map<String, dynamic>;
+    final items = (data['items'] as List<dynamic>?) ?? [];
+    final subtotal = (data['subtotal'] ?? 0).toDouble();
+    final buyerName = data['buyerName'] ?? 'Customer';
+    final buyerEmail = data['buyerEmail'] ?? '';
+    final status = data['status'] ?? 'pending';
+    final createdAt = data['createdAt'] as Timestamp?;
+    final date = createdAt?.toDate();
+    final deliveryAddress = data['deliveryAddress'] ?? '';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: isPending ? 3 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: isPending 
+            ? BorderSide(color: Colors.orange.shade300, width: 1.5)
+            : BorderSide.none,
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isPending ? Colors.orange.shade100 : Colors.green.shade100,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            isPending ? Icons.receipt_long : Icons.check_circle,
+            color: isPending ? Colors.orange.shade700 : Colors.green.shade700,
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                buyerName,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              '\$${subtotal.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.green.shade700,
+              ),
+            ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              date != null
+                  ? '${date.month}/${date.day}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}'
+                  : 'Date unknown',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: _getStatusColor(status).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                status.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: _getStatusColor(status),
+                ),
+              ),
+            ),
+          ],
+        ),
         children: [
-          Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text(
-            "Orders Coming Soon",
-            style: TextStyle(fontSize: 20, color: Colors.grey.shade600),
+          const Divider(),
+          
+          // Customer info
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 16, color: Colors.grey.shade600),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        buyerEmail,
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                      ),
+                    ),
+                  ],
+                ),
+                if (deliveryAddress.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.location_on_outlined, size: 16, color: Colors.grey.shade600),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          deliveryAddress,
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Items
+          const Text(
+            'Order Items',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
           const SizedBox(height: 8),
-          Text(
-            "Order management will be available in a future update",
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-          ),
+          ...items.map((item) {
+            final itemData = item as Map<String, dynamic>;
+            final name = itemData['name'] ?? '';
+            final price = (itemData['price'] ?? 0).toDouble();
+            final quantity = itemData['quantity'] ?? 1;
+            final pickupTime = itemData['pickupTime'] as Timestamp?;
+            final pickupDate = pickupTime?.toDate();
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade200),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      Text(
+                        'x$quantity',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '\$${(price * quantity).toStringAsFixed(2)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  if (pickupDate != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.schedule, size: 14, color: Colors.blue.shade600),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Pickup: ${pickupDate.month}/${pickupDate.day} at ${pickupDate.hour}:${pickupDate.minute.toString().padLeft(2, '0')}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+
+          // Action buttons
+          if (isPending) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _updateOrderStatus(businessId, doc.id, 'cancelled'),
+                    icon: const Icon(Icons.cancel_outlined, size: 18),
+                    label: const Text('Cancel'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red.shade600,
+                      side: BorderSide(color: Colors.red.shade300),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _updateOrderStatus(businessId, doc.id, 'ready'),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Mark Ready for Pickup'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (status == 'ready') ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _updateOrderStatus(businessId, doc.id, 'completed'),
+                icon: const Icon(Icons.done_all, size: 18),
+                label: const Text('Mark as Picked Up / Completed'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return Colors.orange.shade700;
+      case 'ready':
+        return Colors.blue.shade700;
+      case 'completed':
+        return Colors.green.shade700;
+      case 'cancelled':
+        return Colors.red.shade700;
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
+  Future<void> _updateOrderStatus(String businessId, String orderId, String newStatus) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('sellerOrders')
+          .doc(businessId)
+          .collection('orders')
+          .doc(orderId)
+          .update({'status': newStatus});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Order marked as ${newStatus.toUpperCase()}'),
+            backgroundColor: _getStatusColor(newStatus),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating order: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // SETTINGS SECTION
@@ -2463,103 +2953,574 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
     final user = widget.authService.currentUser;
     if (user == null) return;
 
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Payment Methods',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showAddCardDialogSeller(context);
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Card'),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Cards list
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .collection('savedCards')
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
+
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final cards = snapshot.data?.docs ?? [];
+
+                    if (cards.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.credit_card_off,
+                              size: 64,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No saved cards',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Add a card to speed up checkout',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showAddCardDialogSeller(context);
+                              },
+                              icon: const Icon(Icons.add),
+                              label: const Text('Add Card'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: cards.length,
+                      itemBuilder: (context, index) {
+                        final card = cards[index].data() as Map<String, dynamic>;
+                        final cardId = cards[index].id;
+                        final lastFour = card['lastFour'] ?? '****';
+                        final cardType = card['cardType'] ?? 'Card';
+                        final holderName = card['holderName'] ?? '';
+                        final expiry = card['expiry'] ?? '';
+                        final isDefault = card['isDefault'] ?? false;
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: isDefault
+                                ? BorderSide(color: Colors.green.shade400, width: 2)
+                                : BorderSide.none,
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            leading: Container(
+                              width: 50,
+                              height: 35,
+                              decoration: BoxDecoration(
+                                color: _getCardColorSeller(cardType),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.credit_card,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                            title: Row(
+                              children: [
+                                Text(
+                                  '$cardType •••• $lastFour',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (isDefault) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Default',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.green.shade700,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            subtitle: Text(
+                              holderName.isNotEmpty
+                                  ? '$holderName • Exp: $expiry'
+                                  : 'Exp: $expiry',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'default') {
+                                  _setDefaultCardSeller(user.uid, cardId, cards);
+                                } else if (value == 'delete') {
+                                  _confirmDeleteCardSeller(context, user.uid, cardId, lastFour);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                if (!isDefault)
+                                  const PopupMenuItem(
+                                    value: 'default',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.check_circle_outline, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('Set as Default'),
+                                      ],
+                                    ),
+                                  ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Delete', style: TextStyle(color: Colors.red)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getCardColorSeller(String cardType) {
+    switch (cardType.toLowerCase()) {
+      case 'visa':
+        return const Color(0xFF1A1F71);
+      case 'mastercard':
+        return const Color(0xFFEB001B);
+      case 'amex':
+      case 'american express':
+        return const Color(0xFF006FCF);
+      case 'discover':
+        return const Color(0xFFFF6000);
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
+  String _detectCardTypeSeller(String cardNumber) {
+    final number = cardNumber.replaceAll(RegExp(r'\D'), '');
+    
+    if (number.startsWith('4')) {
+      return 'Visa';
+    } else if (number.startsWith('5') || 
+               (int.tryParse(number.substring(0, 4)) ?? 0) >= 2221 &&
+               (int.tryParse(number.substring(0, 4)) ?? 0) <= 2720) {
+      return 'Mastercard';
+    } else if (number.startsWith('34') || number.startsWith('37')) {
+      return 'Amex';
+    } else if (number.startsWith('6011') || 
+               number.startsWith('65') ||
+               number.startsWith('644') ||
+               number.startsWith('645') ||
+               number.startsWith('646') ||
+               number.startsWith('647') ||
+               number.startsWith('648') ||
+               number.startsWith('649')) {
+      return 'Discover';
+    }
+    return 'Card';
+  }
+
+  void _showAddCardDialogSeller(BuildContext context) {
+    final user = widget.authService.currentUser;
+    if (user == null) return;
+
+    final cardNumberController = TextEditingController();
+    final holderNameController = TextEditingController();
+    final expiryController = TextEditingController();
+    final cvvController = TextEditingController();
+    final nicknameController = TextEditingController();
+    bool setAsDefault = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Payment Method'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: cardNumberController,
+                  decoration: InputDecoration(
+                    labelText: 'Card Number',
+                    prefixIcon: const Icon(Icons.credit_card),
+                    hintText: '1234 5678 9012 3456',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                  maxLength: 19,
+                  onChanged: (value) {
+                    // Auto-format with spaces
+                    final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+                    final formatted = digitsOnly.replaceAllMapped(
+                      RegExp(r'.{4}'),
+                      (match) => '${match.group(0)} ',
+                    ).trim();
+                    if (formatted != value) {
+                      cardNumberController.value = TextEditingValue(
+                        text: formatted,
+                        selection: TextSelection.collapsed(offset: formatted.length),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: holderNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Cardholder Name',
+                    prefixIcon: const Icon(Icons.person),
+                    hintText: 'JOHN DOE',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: expiryController,
+                        decoration: InputDecoration(
+                          labelText: 'Expiry',
+                          hintText: 'MM/YY',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 5,
+                        onChanged: (value) {
+                          // Auto-format MM/YY
+                          final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+                          String formatted = digitsOnly;
+                          if (digitsOnly.length >= 2) {
+                            formatted = '${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2)}';
+                          }
+                          if (formatted != value) {
+                            expiryController.value = TextEditingValue(
+                              text: formatted,
+                              selection: TextSelection.collapsed(offset: formatted.length),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: cvvController,
+                        decoration: InputDecoration(
+                          labelText: 'CVV',
+                          hintText: '123',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        obscureText: true,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nicknameController,
+                  decoration: InputDecoration(
+                    labelText: 'Card Nickname (optional)',
+                    prefixIcon: const Icon(Icons.label_outline),
+                    hintText: 'e.g., Business Card, Personal',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  value: setAsDefault,
+                  onChanged: (value) {
+                    setDialogState(() => setAsDefault = value ?? false);
+                  },
+                  title: const Text('Set as default payment method'),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final cardNumber = cardNumberController.text.replaceAll(' ', '');
+                final holderName = holderNameController.text.trim();
+                final expiry = expiryController.text.trim();
+                final cvv = cvvController.text.trim();
+                final nickname = nicknameController.text.trim();
+
+                // Basic validation
+                if (cardNumber.length < 13) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid card number')),
+                  );
+                  return;
+                }
+                if (expiry.length != 5) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid expiry date (MM/YY)')),
+                  );
+                  return;
+                }
+                if (cvv.length < 3) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid CVV')),
+                  );
+                  return;
+                }
+
+                // Determine card type
+                final cardType = _detectCardTypeSeller(cardNumber);
+                final lastFour = cardNumber.substring(cardNumber.length - 4);
+
+                // If setting as default, unset other defaults first
+                if (setAsDefault) {
+                  final existingCards = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .collection('savedCards')
+                      .where('isDefault', isEqualTo: true)
+                      .get();
+
+                  for (final doc in existingCards.docs) {
+                    await doc.reference.update({'isDefault': false});
+                  }
+                }
+
+                // Save card
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .collection('savedCards')
+                    .add({
+                  'lastFour': lastFour,
+                  'cardType': cardType,
+                  'holderName': holderName,
+                  'expiry': expiry,
+                  'nickname': nickname.isNotEmpty ? nickname : '$cardType •••• $lastFour',
+                  'isDefault': setAsDefault,
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$cardType •••• $lastFour added'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  // Reopen payment methods sheet
+                  _showPaymentMethodsDialog(context);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Add Card'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _setDefaultCardSeller(String uid, String cardId, List<QueryDocumentSnapshot> allCards) async {
+    // Unset all other defaults
+    for (final doc in allCards) {
+      if (doc.id != cardId) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('savedCards')
+            .doc(doc.id)
+            .update({'isDefault': false});
+      }
+    }
+
+    // Set this card as default
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('savedCards')
+        .doc(cardId)
+        .update({'isDefault': true});
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Default payment method updated'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  void _confirmDeleteCardSeller(BuildContext context, String uid, String cardId, String lastFour) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Payment Methods'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .collection('savedCards')
-                .orderBy('createdAt', descending: true)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
+        title: const Text('Delete Card'),
+        content: Text('Are you sure you want to remove the card ending in $lastFour?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid)
+                  .collection('savedCards')
+                  .doc(cardId)
+                  .delete();
 
-              final cards = snapshot.data!.docs;
-
-              if (cards.isEmpty) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.credit_card_off, size: 60, color: Colors.grey.shade400),
-                    const SizedBox(height: 12),
-                    const Text('No saved payment methods'),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Cards saved during checkout will appear here',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Card removed')),
                 );
               }
-
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ...cards.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: Icon(Icons.credit_card, color: Colors.green.shade700),
-                        title: Text(data['nickname'] ?? 'Saved Card'),
-                        subtitle: Text('•••• ${data['lastFour']} | Exp: ${data['expiry']}'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () async {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Remove Card'),
-                                content: const Text('Are you sure you want to remove this card?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: const Text('Remove', style: TextStyle(color: Colors.red)),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            if (confirm == true) {
-                              await FirebaseFirestore.instance
-                                  .collection('users')
-                                  .doc(user.uid)
-                                  .collection('savedCards')
-                                  .doc(doc.id)
-                                  .delete();
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  const SizedBox(height: 12),
-                  Text(
-                    'To add a new card, save it during checkout',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                ],
-              );
             },
-          ),
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Done', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -2667,6 +3628,49 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
     );
   }
 
+  // Cache for business names in seller purchase history
+  Map<String, String> _sellerPurchaseHistoryBusinessNames = {};
+
+  Future<String> _getBusinessNameForSellerHistory(String businessId) async {
+    if (_sellerPurchaseHistoryBusinessNames.containsKey(businessId)) {
+      return _sellerPurchaseHistoryBusinessNames[businessId]!;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('businesses')
+          .doc(businessId)
+          .get();
+
+      if (doc.exists) {
+        final name = doc.data()?['name'] ?? 'Unknown Seller';
+        _sellerPurchaseHistoryBusinessNames[businessId] = name;
+        return name;
+      }
+    } catch (e) {
+      // Handle error
+    }
+
+    _sellerPurchaseHistoryBusinessNames[businessId] = 'Unknown Seller';
+    return 'Unknown Seller';
+  }
+
+  // Group items by businessId for seller purchases
+  Map<String, List<Map<String, dynamic>>> _groupItemsByVendorSeller(List<dynamic> items) {
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    
+    for (final item in items) {
+      final itemData = item as Map<String, dynamic>;
+      final businessId = itemData['businessId'] ?? 'unknown';
+      if (!grouped.containsKey(businessId)) {
+        grouped[businessId] = [];
+      }
+      grouped[businessId]!.add(itemData);
+    }
+    
+    return grouped;
+  }
+
   Widget _buildPurchasesSection() {
     final user = widget.authService.currentUser;
     if (user == null) {
@@ -2736,6 +3740,10 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   final createdAt = data['createdAt'] as Timestamp?;
                   final date = createdAt?.toDate();
 
+                  // Group items by vendor
+                  final groupedItems = _groupItemsByVendorSeller(items);
+                  final vendorCount = groupedItems.keys.length;
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -2758,11 +3766,21 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 4),
-                          Text(
-                            date != null
-                                ? '${date.month}/${date.day}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}'
-                                : 'Date unknown',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              Text(
+                                date != null
+                                    ? '${date.month}/${date.day}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}'
+                                    : 'Date unknown',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              ),
+                              if (vendorCount > 1)
+                                Text(
+                                  '• $vendorCount sellers',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Container(
@@ -2785,58 +3803,153 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                       children: [
                         const Divider(),
                         const SizedBox(height: 8),
-                        ...items.map((item) {
-                          final itemData = item as Map<String, dynamic>;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        
+                        // Grouped by vendor
+                        ...groupedItems.entries.map((entry) {
+                          final businessId = entry.key;
+                          final vendorItems = entry.value;
+                          final vendorSubtotal = vendorItems.fold<double>(
+                            0,
+                            (sum, item) => sum + ((item['price'] ?? 0) * (item['quantity'] ?? 1)),
+                          );
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade200,
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: const Icon(Icons.fastfood, size: 20, color: Colors.grey),
+                                // Vendor header
+                                FutureBuilder<String>(
+                                  future: _getBusinessNameForSellerHistory(businessId),
+                                  builder: (context, snapshot) {
+                                    final businessName = snapshot.data ?? 'Loading...';
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade50,
+                                        borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
                                       ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              itemData['name'] ?? 'Unknown item',
-                                              style: const TextStyle(fontWeight: FontWeight.w500),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.storefront, size: 16, color: Colors.green.shade700),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              businessName,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: Colors.green.shade800,
+                                              ),
                                             ),
-                                            Text(
-                                              'Qty: ${itemData['quantity']} × \$${(itemData['price'] ?? 0).toStringAsFixed(2)}',
-                                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                          ),
+                                          Text(
+                                            '\$${vendorSubtotal.toStringAsFixed(2)}',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                              color: Colors.green.shade700,
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                    );
+                                  },
                                 ),
-                                Text(
-                                  '\$${((itemData['price'] ?? 0) * (itemData['quantity'] ?? 1)).toStringAsFixed(2)}',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700),
-                                ),
+
+                                // Vendor items
+                                ...vendorItems.map((itemData) {
+                                  // Format pickup time if available
+                                  String? pickupTimeStr;
+                                  final pickupTime = itemData['pickupTime'];
+                                  if (pickupTime != null) {
+                                    DateTime dt;
+                                    if (pickupTime is Timestamp) {
+                                      dt = pickupTime.toDate();
+                                    } else {
+                                      dt = pickupTime as DateTime;
+                                    }
+                                    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+                                    final minute = dt.minute.toString().padLeft(2, '0');
+                                    final period = dt.hour >= 12 ? 'PM' : 'AM';
+                                    pickupTimeStr = '${dt.month}/${dt.day} at $hour:$minute $period';
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade200,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Icon(Icons.fastfood, size: 18, color: Colors.grey),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                itemData['name'] ?? 'Unknown item',
+                                                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                'Qty: ${itemData['quantity']} × \$${(itemData['price'] ?? 0).toStringAsFixed(2)}',
+                                                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                              ),
+                                              if (pickupTimeStr != null)
+                                                Row(
+                                                  children: [
+                                                    Icon(Icons.schedule, size: 12, color: Colors.blue.shade600),
+                                                    const SizedBox(width: 4),
+                                                    Flexible(
+                                                      child: Text(
+                                                        'Pickup: $pickupTimeStr',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Colors.blue.shade700,
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        Text(
+                                          '\$${((itemData['price'] ?? 0) * (itemData['quantity'] ?? 1)).toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
                               ],
                             ),
                           );
                         }).toList(),
-                        const SizedBox(height: 8),
+
                         const Divider(),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text('Order Total', style: TextStyle(fontWeight: FontWeight.bold)),
                             Text(
                               '\$${total.toStringAsFixed(2)}',
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green.shade700),
