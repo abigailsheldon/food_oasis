@@ -63,10 +63,17 @@ class _SignupPageState extends State<SignupPage> {
             ),
           );
           // Send to home
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const MainPage()),
-            (route) => false,
-          );
+          if (_selectedRole == 'seller') {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const SellerOnboardingPage()),
+              (route) => false,
+            );
+          } else {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const MainPage()),
+              (route) => false,
+            );
+          }
         }
       } else {
         if (mounted) {
