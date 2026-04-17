@@ -156,6 +156,13 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                               }
                             },
                           ),
+
+                          IconButton(
+                            icon: const Icon(Icons.flag_outlined),
+                            color: Colors.red.shade400,
+                            tooltip: 'Report Seller',
+                            onPressed: _showReportSellerDialog,
+                          ),
                         ],
                       ),
 
@@ -741,6 +748,107 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
         ),
       );
     }
+  }
+
+  Future<void> _submitSellerReport(String reason, String details) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final businessId = widget.seller['businessId'] ?? '';
+    final sellerName = widget.seller['name'] ?? '';
+
+    await FirebaseFirestore.instance.collection('reports').add({
+      'businessId': businessId,
+      'sellerName': sellerName,
+      'reportedBy': user.uid,
+      'reason': reason,
+      'details': details,
+      'status': 'open',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report submitted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  void _showReportSellerDialog() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to report a seller')),
+      );
+      return;
+    }
+
+    String selectedReason = 'Fraud';
+    final detailsController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Report Seller'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedReason,
+                    items: const [
+                      DropdownMenuItem(value: 'Fraud', child: Text('Fraud')),
+                      DropdownMenuItem(value: 'False Listing', child: Text('False Listing')),
+                      DropdownMenuItem(value: 'Inappropriate Behavior', child: Text('Inappropriate Behavior')),
+                      DropdownMenuItem(value: 'Spam', child: Text('Spam')),
+                      DropdownMenuItem(value: 'Violating Food Oasis Rules', child: Text('Violating Food Oasis Rules')),
+                      DropdownMenuItem(value: 'Other', child: Text('Other')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() => selectedReason = value);
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Reason',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: detailsController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Details',
+                      border: OutlineInputBorder(),
+                      hintText: 'Describe the issue...',
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await _submitSellerReport(selectedReason, detailsController.text);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Submit Report'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   // STREAM OF PRODUCTS
