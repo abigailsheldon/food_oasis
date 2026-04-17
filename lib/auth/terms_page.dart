@@ -101,17 +101,22 @@ class _TermsPageState extends State<TermsPage> {
                   ),
 
                   _section(
-                    "2. Location Services",
+                    "2. Seller Eligibility",
+                    "Food Oasis is intended exclusively for independent, small-scale food vendors, including but not limited to local farmers, home bakers, farmers market vendors, food trucks, food stalls, and similar community-based businesses. The platform may not be used by national chains, franchise operations, large corporate retailers, or businesses whose primary operations fall outside the scope of local small-scale food commerce. Food Oasis reserves the right to review, suspend, or remove any seller account that does not meet these eligibility requirements. Users may report sellers they believe are misrepresenting their business type or operating in violation of these requirements.",
+                  ),
+
+                  _section(
+                    "3. Location Services",
                     "Food Oasis may request access to your device location to show nearby sellers and listings. Location is used only for platform functionality. You may disable location, but some features may be limited as a result. You acknowledge responsibility for enabling or disabling permissions.",
                   ),
 
                   _section(
-                    "3. Marketplace Role",
+                    "4. Marketplace Role",
                     "Food Oasis is a neutral marketplace connecting users. We do not prepare, inspect, store, or deliver food. We are not a party to transactions between users. We do not guarantee listings, users, or outcomes. All transactions occur directly between users at their own risk. By accepting, you acknowledge that Food Oasis is not liable for any issues arising from transactions, including but not limited to food safety, legality, or disputes.",
                   ),
 
                   _section(
-                    "4. Buyer Risk",
+                    "5. Buyer Risk",
                     "As a buyer, you agree that:\n"
                     "• You are responsible for reviewing listings before purchase or reservation.\n"
                     "• You assume all risks related to food consumption, including allergies, illness, or injury.\n"
@@ -120,7 +125,7 @@ class _TermsPageState extends State<TermsPage> {
                   ),
 
                   _section(
-                    "5. Seller Responsibility",
+                    "6. Seller Responsibility",
                     "As a seller, you agree that:\n"
                     "• You are fully responsible for all items you list or sell.\n"
                     "• You will not sell expired, unsafe, contaminated, or misleading items.\n"
@@ -131,7 +136,7 @@ class _TermsPageState extends State<TermsPage> {
                   ),
 
                   _section(
-                    "6. Health & Safety",
+                    "7. Health & Safety",
                     "Users acknowledge that food transactions carry inherent risks, including but not limited to:\n"
                     "• Foodborne illness or contamination\n"
                     "• Allergic reactions\n"
@@ -141,7 +146,7 @@ class _TermsPageState extends State<TermsPage> {
                   ),
 
                   _section(
-                    "7. User Conduct",
+                    "8. User Conduct",
                     "You agree not to:\n"
                     "• Post false, misleading, or fraudulent listings or reviews\n"
                     "• Sell illegal or prohibited items\n"
@@ -154,32 +159,32 @@ class _TermsPageState extends State<TermsPage> {
                   ),
 
                   _section(
-                    "8. Account Security",
+                    "9. Account Security",
                     "You are responsible for maintaining the confidentiality of your account and password. You agree to notify Food Oasis immediately of any unauthorized use of your account. Food Oasis is not liable for any loss or damage arising from your failure to comply with this security obligation.",
                   ),
 
                   _section(
-                    "9. Payment & Transactions",
+                    "10. Payment & Transactions",
                     "Food Oasis may enable transactions between users. Food Oasis can not guarantee payment or fulfillment. Disputes must be resolved between users unless otherwise stated in policy. Food Oasis may not mediate or reverse transactions.",
                   ),
 
                   _section(
-                    "10. Limitation of Liability",
+                    "11. Limitation of Liability",
                     "To the fullest extent permitted by law, Food Oasis and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, or any loss of data, use, goodwill, or other intangible losses, resulting from (i) your access to or use of or inability to access or use the Service; (ii) any conduct or content of any third party on the Service; (iii) any content obtained from the Service; and (iv) unauthorized access, use, or alteration of your transmissions or content. In no event shall Food Oasis's total liability to you for all damages, losses, and causes of action exceed the amount paid by you, if any, for accessing the Service. The limitations of this section shall apply even if Food Oasis has been advised of the possibility of such damages. Food Oasis is not liable for injury, illness, or harm resulting from use of the platform, including but not limited to foodborne illness, allergic reactions, or accidents during pickup. By accepting these terms, you acknowledge and assume all risks associated with using Food Oasis."
                   ),
 
                   _section(
-                    "11. Termination",
+                    "12. Termination",
                     "Food Oasis may suspend or terminate accounts that violate these Terms or harm the platform or other users."
                   ),
 
                   _section(
-                    "12. Updates to Terms",
+                    "13. Updates to Terms",
                     "Food Oasis may update these Terms at any time. Continued use of the Service constitutes acceptance of changes."
                   ),
 
                   _section(
-                    "13. Agreement",
+                    "14. Agreement",
                     "By accepting, you acknowledge that you have read, understood, and agree to be bound by these Terms & Conditions. If you do not agree, please do not use Food Oasis."
                   ),
 
